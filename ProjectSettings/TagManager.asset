@@ -8,6 +8,8 @@ TagManager:
   - CookingZone
   - DeliveryZone
   - Burger
+  - TrashZone
+  - Ingredient
   layers:
   - Default
   - TransparentFX

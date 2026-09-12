@@ -12,4 +12,7 @@ public class RecipeData : ScriptableObject
     public int points;
 
     public int difficulty;
+
+    public bool includesFries;
+    public bool includesDrink;
 }

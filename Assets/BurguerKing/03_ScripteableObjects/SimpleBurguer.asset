@@ -14,8 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RecipeData
   recipeName: Hamburguesa Simple
   ingredients:
-  - Bread
+  - BreadBottom
   - Meat
+  - BreadTop
   timeLimit: 60
   points: 100
   difficulty: 1
+  includesFries: 0
+  includesDrink: 0
