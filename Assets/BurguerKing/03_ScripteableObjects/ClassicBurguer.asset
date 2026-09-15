@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82dc8b86f5f257d4fac1c472534b5d68, type: 3}
-  m_Name: SimpleBurguer
+  m_Name: ClassicBurguer
   m_EditorClassIdentifier: Assembly-CSharp::RecipeData
-  recipeName: Hamburguesa Simple
+  recipeName: Hamburguesa Clasica
   ingredients:
   - BreadBottom
   - Meat
+  - Lettuce
+  - Tomato
   - BreadTop
-  timeLimit: 100
-  points: 100
-  difficulty: 1
+  timeLimit: 140
+  points: 120
+  difficulty: 2
   includesFries: 0
   includesDrink: 0

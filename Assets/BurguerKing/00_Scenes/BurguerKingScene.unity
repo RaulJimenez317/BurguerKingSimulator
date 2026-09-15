@@ -1658,7 +1658,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 153982007679157697, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_MoveSpeed
-      value: 4
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 1717954561962503725, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_Name
@@ -1707,6 +1707,14 @@ PrefabInstance:
     - target: {fileID: 1717954561962503726, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3533369827395663398, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7399425242140339816, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+      propertyPath: m_UseCharacterControllerIfExists
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6754,6 +6762,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f95b82410090fe548b9dee9209f103d0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TrashBin
+  burgerAssembly: {fileID: 1057680443}
 --- !u!65 &1829399243
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -7069,6 +7078,12 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 966553110f420c044a36045a89c2fbf8, type: 2}
   - {fileID: 11400000, guid: 94df47e2cfb56014aa966bc3b672b9af, type: 2}
   - {fileID: 11400000, guid: 42d2495cd03d29e41b6eea2953d42162, type: 2}
+  - {fileID: 11400000, guid: be2258365783be347a7af86379d816c3, type: 2}
+  - {fileID: 11400000, guid: 6a4d1b2abc2c46b4bbae372b196768f1, type: 2}
+  - {fileID: 11400000, guid: 996a6af72f526454e9b0a28c3844ea22, type: 2}
+  - {fileID: 11400000, guid: bc11eddf8327b43408517eb10934bd6f, type: 2}
+  - {fileID: 11400000, guid: b1942d1cba4a17741ba99c96099dffe3, type: 2}
+  - {fileID: 11400000, guid: 12956eeda75b64543bf88fc0c744e811, type: 2}
   currentRecipe: {fileID: 0}
   burgerAssembly: {fileID: 1057680443}
   deliveryManager: {fileID: 116812360}

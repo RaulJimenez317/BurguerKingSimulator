@@ -20,7 +20,7 @@ MonoBehaviour:
   - Lettuce
   - Tomato
   - BreadTop
-  timeLimit: 75
+  timeLimit: 200
   points: 200
   difficulty: 3
   includesFries: 0

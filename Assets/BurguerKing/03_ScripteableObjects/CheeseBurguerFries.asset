@@ -10,15 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 82dc8b86f5f257d4fac1c472534b5d68, type: 3}
-  m_Name: SimpleBurguer
+  m_Name: CheeseBurguerFries
   m_EditorClassIdentifier: Assembly-CSharp::RecipeData
-  recipeName: Hamburguesa Simple
+  recipeName: Hamburguesa con Queso y Papas
   ingredients:
   - BreadBottom
   - Meat
+  - Cheese
   - BreadTop
-  timeLimit: 100
-  points: 100
-  difficulty: 1
-  includesFries: 0
+  timeLimit: 150
+  points: 170
+  difficulty: 2
+  includesFries: 1
   includesDrink: 0
