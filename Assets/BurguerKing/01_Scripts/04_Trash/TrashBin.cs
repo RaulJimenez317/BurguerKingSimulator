@@ -7,20 +7,23 @@ public class TrashBin : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        if (other.CompareTag("Burger"))
+        {
+
+            if (burgerAssembly != null)
+            {
+                burgerAssembly.ResetAssembly();
+            }
+
+            return;
+        }
+
         if (other.CompareTag("Ingredient") ||
-            other.CompareTag("Burger") ||
             other.GetComponent<FriesBag>() != null ||
             other.GetComponent<DrinkCup>() != null)
         {
 
-            bool isBurger = other.CompareTag("Burger");
-
             Destroy(other.gameObject);
-
-            if (isBurger && burgerAssembly != null)
-            {
-                burgerAssembly.ResetAssembly();
-            }
         }
     }
 }
