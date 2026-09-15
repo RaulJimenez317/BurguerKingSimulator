@@ -25,6 +25,9 @@ public class CustomerController : MonoBehaviour
     [Header("SPAWNER")]
     public CustomerSpawner spawner;
 
+    [Header("PEDIDOS")]
+    public OrderManager orderManager;
+
     private void Start()
     {
         if (orderPanel != null)
@@ -104,7 +107,10 @@ public class CustomerController : MonoBehaviour
 
             finishedLooking = true;
 
-            
+            if (orderManager != null)
+            {
+                orderManager.StartOrderTimer();
+            }
         }
     }
 

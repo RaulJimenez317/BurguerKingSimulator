@@ -107,8 +107,7 @@ public class OrderManager : MonoBehaviour
         UpdateOrderUI();
 
         remainingTime = currentRecipe.timeLimit;
-        orderActive = true;
-
+        orderActive = false;
         UpdateTimerText();
 
         Debug.Log("Nuevo pedido: " + currentRecipe.recipeName);
@@ -236,6 +235,19 @@ public class OrderManager : MonoBehaviour
         }
     }
 
+
+    public void StartOrderTimer()
+    {
+        if (currentRecipe == null)
+            return;
+
+        remainingTime = currentRecipe.timeLimit;
+        orderActive = true;
+
+        UpdateTimerText();
+
+        Debug.Log("⏱️ ¡Comenzó el tiempo del pedido!");
+    }
     private void UpdateTimerText()
     {
         if (timerText != null)

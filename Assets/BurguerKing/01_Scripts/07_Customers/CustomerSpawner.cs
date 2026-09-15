@@ -16,6 +16,9 @@ public class CustomerSpawner : MonoBehaviour
 
     private GameObject currentCustomer;
 
+    [Header("PEDIDOS")]
+    public OrderManager orderManager;
+
     private void Start()
     {
         SpawnCustomer();
@@ -53,6 +56,7 @@ public class CustomerSpawner : MonoBehaviour
             customer.exitPoint = exitPoint;
             customer.orderPanel = orderPanel;
             customer.spawner = this;
+            customer.orderManager = orderManager;
         }
 
     }
