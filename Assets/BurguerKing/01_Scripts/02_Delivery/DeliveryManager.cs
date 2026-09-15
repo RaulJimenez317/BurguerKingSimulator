@@ -24,6 +24,10 @@ public class DeliveryManager : MonoBehaviour
     private bool orderManagerWasEnabled = true;
     private Coroutine finishCoroutine;
 
+
+    [Header("CLIENTE")]
+    public CustomerSpawner customerSpawner;
+
     private void Start()
     {
         UpdateScoreText();
@@ -273,6 +277,11 @@ public class DeliveryManager : MonoBehaviour
         yield return new WaitForSecondsRealtime(feedbackDuration);
 
         RemoveDeliveredExtras();
+
+        if (customerSpawner != null)
+        {
+            customerSpawner.StartCurrentCustomerLeaving();
+        }
 
         if (assembly != null)
         {

@@ -6,6 +6,7 @@ public class CustomerController : MonoBehaviour
     [Header("PUNTOS")]
     public Transform waitPoint;
     public Transform lookPoint;
+    public Transform exitPoint;
 
     [Header("MOVIMIENTO")]
     public float moveSpeed = 2f;
@@ -13,11 +14,33 @@ public class CustomerController : MonoBehaviour
     [Header("GIRO")]
     public float rotationSpeed = 180f;
 
+    [Header("UI DEL PEDIDO")]
+    public GameObject orderPanel;
+
     private bool arrived = false;
     private bool finishedLooking = false;
+    private bool leaving = false;
+    private bool finishedTurning = false;
+
+    [Header("SPAWNER")]
+    public CustomerSpawner spawner;
+
+    private void Start()
+    {
+        if (orderPanel != null)
+        {
+            orderPanel.SetActive(false);
+        }
+    }
 
     private void Update()
     {
+        if (leaving)
+        {
+            LeaveCounter();
+            return;
+        }
+
         if (!arrived)
         {
             MoveToWaitPoint();
@@ -42,7 +65,11 @@ public class CustomerController : MonoBehaviour
 
             arrived = true;
 
-            Debug.Log("🧍 Cliente llegó al mostrador.");
+            if (orderPanel != null)
+            {
+                orderPanel.SetActive(true);
+            }
+
         }
     }
 
@@ -51,14 +78,14 @@ public class CustomerController : MonoBehaviour
         if (lookPoint == null)
             return;
 
-        Vector3 direction = lookPoint.position - transform.position;
+        Vector3 direction =
+            lookPoint.position - transform.position;
+
         direction.y = 0f;
 
         if (direction.sqrMagnitude < 0.001f)
             return;
 
-        // Como el frente visual del modelo está en X+
-        // compensamos los 90 grados respecto al Z+ de Unity.
         Quaternion targetRotation =
             Quaternion.LookRotation(direction) *
             Quaternion.Euler(0f, -90f, 0f);
@@ -69,14 +96,94 @@ public class CustomerController : MonoBehaviour
             rotationSpeed * Time.deltaTime
         );
 
-        if (Quaternion.Angle(transform.rotation, targetRotation) < 1f)
+        if (Quaternion.Angle(
+            transform.rotation,
+            targetRotation) < 1f)
         {
             transform.rotation = targetRotation;
 
             finishedLooking = true;
 
-            Debug.Log("👀 Cliente está mirando al jugador.");
+            
         }
+    }
+
+    public void StartLeaving()
+    {
+        if (leaving)
+            return;
+
+        leaving = true;
+        finishedTurning = false;
+
+        if (orderPanel != null)
+        {
+            orderPanel.SetActive(false);
+        }
+
+    }
+
+    private void LeaveCounter()
+    {
+        if (exitPoint == null)
+            return;
+
+        Vector3 direction =
+            exitPoint.position - transform.position;
+
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude < 0.001f)
+        {
+            FinishLeaving();
+            return;
+        }
+
+        Quaternion targetRotation =
+            Quaternion.LookRotation(direction) *
+            Quaternion.Euler(0f, -90f, 0f);
+
+        if (!finishedTurning)
+        {
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                rotationSpeed * Time.deltaTime
+            );
+
+            if (Quaternion.Angle(
+                transform.rotation,
+                targetRotation) < 1f)
+            {
+                transform.rotation = targetRotation;
+                finishedTurning = true;
+            }
+
+            return;
+        }
+
+        transform.position = Vector3.MoveTowards(
+            transform.position,
+            exitPoint.position,
+            moveSpeed * Time.deltaTime
+        );
+
+        if (Vector3.Distance(
+            transform.position,
+            exitPoint.position) < 0.1f)
+        {
+            FinishLeaving();
+        }
+    }
+
+    private void FinishLeaving()
+    {
+        if (spawner != null)
+        {
+            spawner.CustomerFinished();
+        }
+
+        Destroy(gameObject);
     }
 }
 
