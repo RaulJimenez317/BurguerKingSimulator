@@ -250,9 +250,16 @@ public class OrderManager : MonoBehaviour
     }
     private void UpdateTimerText()
     {
-        if (timerText != null)
+        if (timerText == null)
+            return;
+
+        int seconds = Mathf.CeilToInt(remainingTime);
+
+        timerText.text = "TIEMPO: " + seconds;
+
+        if (seconds <= 10)
         {
-            timerText.text = "TIEMPO: " + Mathf.CeilToInt(remainingTime);
+            timerText.text = "⚠️ TIEMPO: " + seconds;
         }
     }
 }

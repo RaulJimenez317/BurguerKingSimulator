@@ -13,12 +13,16 @@ public class DeliveryManager : MonoBehaviour
     public TMP_Text scoreText;
     public TMP_Text statusText;
 
+    [Header("FEEDBACK UI")]
+    public GameObject feedbackPanel;
+    public TMP_Text feedbackText;
+
     [Header("PUNTUACIÓN")]
     public int score = 0;
     public int incorrectOrderPenalty = 50;
 
     [Header("FEEDBACK")]
-    public float feedbackDuration = 1.5f;
+    public float feedbackDuration = 3.5f;
 
     private bool processingDelivery = false;
     private bool orderManagerWasEnabled = true;
@@ -153,12 +157,14 @@ public class DeliveryManager : MonoBehaviour
 
         UpdateScoreText();
 
-        Debug.Log("✅ Pedido entregado correctamente.");
-        Debug.Log("🥩 Carne correctamente cocinada.");
+        Debug.Log("Pedido entregado correctamente.");
+        Debug.Log("Carne correctamente cocinada.");
         Debug.Log("⭐ +" + earnedPoints + " puntos");
-        Debug.Log("🏆 Puntuación total: " + score);
+        Debug.Log("Puntuación total: " + score);
 
-        BeginOrderFinish("CORRECTO +" + earnedPoints);
+        BeginOrderFinish(
+            "PEDIDO CORRECTO\n\n+" + earnedPoints + " PUNTOS"
+        );
     }
 
     private void DeliverIncorrectOrder(
@@ -167,20 +173,26 @@ public class DeliveryManager : MonoBehaviour
         bool friesCorrect,
         bool drinkCorrect)
     {
-        Debug.Log("❌ Pedido entregado incorrectamente.");
+        Debug.Log("Pedido entregado incorrectamente.");
 
+        string feedbackMessage = "PEDIDO INCORRECTO\n\n";
+
+        // HAMBURGUESA
         if (!burgerCorrect)
         {
             if (!deliveryZone.HasBurger)
             {
-                Debug.Log("🍔 Falta la hamburguesa.");
+                Debug.Log("Falta la hamburguesa.");
+                feedbackMessage += "- Falta la hamburguesa.\n";
             }
             else
             {
-                Debug.Log("🍔 Hamburguesa incorrecta.");
+                Debug.Log("Hamburguesa incorrecta.");
+                feedbackMessage += "- Hamburguesa incorrecta.\n";
             }
         }
 
+        // CARNE
         if (!meatCorrect &&
             deliveryZone.HasBurger &&
             assembly.HasMeat)
@@ -188,74 +200,84 @@ public class DeliveryManager : MonoBehaviour
             switch (assembly.MeatState)
             {
                 case MeatCooking.CookingState.Raw:
-                    Debug.Log("🥩 La carne está cruda.");
+                    Debug.Log("La carne está cruda.");
+                    feedbackMessage += "- La carne está cruda.\n";
                     break;
 
                 case MeatCooking.CookingState.Cooking:
-                    Debug.Log("🥩 La carne todavía está poco cocinada.");
+                    Debug.Log("La carne todavía está poco cocinada.");
+                    feedbackMessage += "- La carne está poco cocinada.\n";
                     break;
 
                 case MeatCooking.CookingState.Burned:
-                    Debug.Log("🔥 La carne está quemada.");
+                    Debug.Log("La carne está quemada.");
+                    feedbackMessage += "- La carne está quemada.\n";
                     break;
 
                 case MeatCooking.CookingState.Ready:
-                    Debug.Log("🥩 La carne está correctamente cocinada.");
+                    Debug.Log("La carne está correctamente cocinada.");
                     break;
             }
         }
 
+        // PAPAS
         if (!friesCorrect)
         {
             if (assembly.recipe.includesFries)
             {
                 if (!deliveryZone.HasFries)
                 {
-                    Debug.Log("🍟 Faltan las papas.");
+                    Debug.Log("Faltan las papas.");
+                    feedbackMessage += "- Faltan las papas.\n";
                 }
                 else
                 {
-                    Debug.Log("🍟 Las papas no están preparadas correctamente.");
+                    Debug.Log("Las papas no están preparadas correctamente.");
+                    feedbackMessage += "- Las papas no están preparadas correctamente.\n";
                 }
             }
             else
             {
-                Debug.Log("🍟 El pedido no incluye papas.");
+                Debug.Log("El pedido no incluye papas.");
+                feedbackMessage += "- El pedido no incluye papas.\n";
             }
         }
 
+        // REFRESCO
         if (!drinkCorrect)
         {
             if (assembly.recipe.includesDrink)
             {
                 if (!deliveryZone.HasDrink)
                 {
-                    Debug.Log("🥤 Falta el refresco.");
+                    Debug.Log("Falta el refresco.");
+                    feedbackMessage += "- Falta el refresco.\n";
                 }
                 else
                 {
-                    Debug.Log("🥤 El refresco no está preparado correctamente.");
+                    Debug.Log("El refresco no está preparado correctamente.");
+                    feedbackMessage += "- El refresco no está preparado correctamente.\n";
                 }
             }
             else
             {
-                Debug.Log("🥤 El pedido no incluye refresco.");
+                Debug.Log("El pedido no incluye refresco.");
+                feedbackMessage += "- El pedido no incluye refresco.\n";
             }
         }
 
         ApplyPenalty(incorrectOrderPenalty);
 
-        BeginOrderFinish("INCORRECTO -" + incorrectOrderPenalty);
+        feedbackMessage += "\n-" + incorrectOrderPenalty + " PUNTOS";
+
+        BeginOrderFinish(feedbackMessage);
     }
 
     private void BeginOrderFinish(string feedbackMessage)
     {
         processingDelivery = true;
 
-        if (statusText != null)
-        {
-            statusText.text = feedbackMessage;
-        }
+        ShowFeedback(feedbackMessage);
 
         if (orderManager != null)
         {
@@ -275,6 +297,7 @@ public class DeliveryManager : MonoBehaviour
     private IEnumerator FinishOrderAfterDelay()
     {
         yield return new WaitForSecondsRealtime(feedbackDuration);
+        HideFeedback();
 
         RemoveDeliveredExtras();
 
@@ -356,5 +379,27 @@ public class DeliveryManager : MonoBehaviour
         {
             scoreText.text = "PUNTOS: " + score;
         }
+    }
+
+    private void ShowFeedback(string message)
+    {
+        if (feedbackText != null)
+        {
+            feedbackText.text = message;
+
+            if (message.StartsWith("PEDIDO CORRECTO"))
+                feedbackText.color = Color.green;
+            else
+                feedbackText.color = Color.red;
+        }
+
+        if (feedbackPanel != null)
+            feedbackPanel.SetActive(true);
+    }
+
+    private void HideFeedback()
+    {
+        if (feedbackPanel != null)
+            feedbackPanel.SetActive(false);
     }
 }
