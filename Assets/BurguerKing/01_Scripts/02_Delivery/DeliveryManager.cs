@@ -17,9 +17,19 @@ public class DeliveryManager : MonoBehaviour
     public GameObject feedbackPanel;
     public TMP_Text feedbackText;
 
+    [Header("GAME OVER UI")]
+    public GameObject gameOverPanel;
+    public TMP_Text gameOverText;
+
     [Header("PUNTUACIÓN")]
-    public int score = 0;
+    public int score = 20;
     public int incorrectOrderPenalty = 50;
+    private int highestScore = 0;
+
+    [Header("ESTADISTICAS")]
+    public int ordersCompleted = 0;
+    public int correctOrders = 0;
+    public int incorrectOrders = 0;
 
     [Header("FEEDBACK")]
     public float feedbackDuration = 3.5f;
@@ -155,6 +165,14 @@ public class DeliveryManager : MonoBehaviour
 
         score += earnedPoints;
 
+        ordersCompleted++;
+        correctOrders++;
+
+        if (score > highestScore)
+        {
+            highestScore = score;
+        }
+
         UpdateScoreText();
 
         Debug.Log("Pedido entregado correctamente.");
@@ -266,7 +284,12 @@ public class DeliveryManager : MonoBehaviour
             }
         }
 
+        ordersCompleted++;
+        incorrectOrders++;
+
         ApplyPenalty(incorrectOrderPenalty);
+
+
 
         feedbackMessage += "\n-" + incorrectOrderPenalty + " PUNTOS";
 
@@ -278,6 +301,18 @@ public class DeliveryManager : MonoBehaviour
         processingDelivery = true;
 
         ShowFeedback(feedbackMessage);
+
+        if (statusText != null)
+        {
+            if (feedbackMessage.StartsWith("PEDIDO CORRECTO"))
+            {
+                statusText.text = "CORRECTO +" + assembly.recipe.points;
+            }
+            else
+            {
+                statusText.text = "INCORRECTO -" + incorrectOrderPenalty;
+            }
+        }
 
         if (orderManager != null)
         {
@@ -294,12 +329,35 @@ public class DeliveryManager : MonoBehaviour
             StartCoroutine(FinishOrderAfterDelay());
     }
 
+    public void HandleTimeout(int penalty)
+    {
+        if (processingDelivery)
+            return;
+
+        Debug.Log("Pedido perdido por falta de tiempo.");
+
+        ordersCompleted++;
+        incorrectOrders++;
+
+        ApplyPenalty(penalty);
+
+        BeginOrderFinish(
+            "TIEMPO AGOTADO\n\n-" + penalty + " PUNTOS"
+        );
+    }
+
     private IEnumerator FinishOrderAfterDelay()
     {
         yield return new WaitForSecondsRealtime(feedbackDuration);
         HideFeedback();
 
         RemoveDeliveredExtras();
+
+        if (score <= 0)
+        {
+            GameOver();
+            yield break;
+        }
 
         if (customerSpawner != null)
         {
@@ -330,6 +388,40 @@ public class DeliveryManager : MonoBehaviour
 
         processingDelivery = false;
         finishCoroutine = null;
+    }
+
+    private void GameOver()
+    {
+        processingDelivery = true;
+
+        if (orderManager != null)
+        {
+            orderManager.enabled = false;
+        }
+
+        if (customerSpawner != null)
+        {
+            customerSpawner.enabled = false;
+        }
+
+        if (gameOverText != null)
+        {
+            gameOverText.text =
+                "FIN DEL TURNO\n\n" +
+                "Tu puntuacion llego a 0.\n\n" +
+                "Puntuacion maxima: " + highestScore + "\n\n" +
+                "Pedidos atendidos: " + ordersCompleted + "\n" +
+                "Correctos: " + correctOrders + "\n" +
+                "Incorrectos: " + incorrectOrders + "\n\n" +
+                "GAME OVER";
+        }
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+
+        Debug.Log("GAME OVER");
     }
 
     private void RemoveDeliveredExtras()

@@ -59,25 +59,20 @@ public class OrderManager : MonoBehaviour
 
             if (deliveryManager != null)
             {
-                deliveryManager.ApplyPenalty(timeoutPenalty);
+                deliveryManager.HandleTimeout(timeoutPenalty);
             }
             else
             {
                 Debug.LogWarning("No hay DeliveryManager asignado en OrderManager.");
             }
 
-            if (burgerAssembly != null)
-            {
-                burgerAssembly.ResetAssembly();
-            }
-
-            GenerateNewOrder();
-
             return;
         }
 
         UpdateTimerText();
     }
+
+
 
     public void GenerateNewOrder()
     {
