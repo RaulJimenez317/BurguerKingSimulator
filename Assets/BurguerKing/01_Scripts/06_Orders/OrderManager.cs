@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using TMPro;
@@ -22,17 +23,51 @@ public class OrderManager : MonoBehaviour
     [Header("PENALIZACIÓN")]
     public int timeoutPenalty = 50;
 
+    [Header("DIFICULTAD PROGRESIVA")]
+
+    [Tooltip("Cantidad de pedidos correctos necesarios para subir un nivel.")]
+    [Min(1)]
+    public int correctOrdersPerLevel = 3;
+
+    [Tooltip("Multiplicador de tiempo para dificultad 1.")]
+    [Range(0.1f, 1f)]
+    public float level1TimeMultiplier = 1f;
+
+    [Tooltip("Multiplicador de tiempo para dificultad 2.")]
+    [Range(0.1f, 1f)]
+    public float level2TimeMultiplier = 0.85f;
+
+    [Tooltip("Multiplicador de tiempo para dificultad 3.")]
+    [Range(0.1f, 1f)]
+    public float level3TimeMultiplier = 0.70f;
+
+    [Tooltip("Probabilidad de elegir una receta del nivel de dificultad actual.")]
+    [Range(0f, 1f)]
+    public float currentDifficultyRecipeChance = 0.70f;
+
+    [Tooltip("Tiempo mínimo que puede tener cualquier pedido.")]
+    [Min(1f)]
+    public float minimumOrderTime = 30f;
+
+
     private float remainingTime;
+    private float currentOrderTimeLimit;
+
     private bool orderActive = false;
     private int orderNumber = 0;
 
+
     public float RemainingTime => remainingTime;
     public bool OrderActive => orderActive;
+    public int CurrentDifficulty => GetCurrentDifficultyLevel();
+    public float CurrentOrderTimeLimit => currentOrderTimeLimit;
+
 
     private void Start()
     {
         GenerateNewOrder();
     }
+
 
     private void Update()
     {
@@ -46,6 +81,7 @@ public class OrderManager : MonoBehaviour
         if (remainingTime <= 0f)
         {
             remainingTime = 0f;
+
             UpdateTimerText();
 
             orderActive = false;
@@ -63,7 +99,9 @@ public class OrderManager : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning("No hay DeliveryManager asignado en OrderManager.");
+                Debug.LogWarning(
+                    "No hay DeliveryManager asignado en OrderManager."
+                );
             }
 
             return;
@@ -73,6 +111,9 @@ public class OrderManager : MonoBehaviour
     }
 
 
+    // =========================================================
+    // GENERAR PEDIDO
+    // =========================================================
 
     public void GenerateNewOrder()
     {
@@ -82,13 +123,21 @@ public class OrderManager : MonoBehaviour
             return;
         }
 
-        int randomIndex = Random.Range(0, recipes.Length);
+        int difficultyLevel = GetCurrentDifficultyLevel();
 
-        currentRecipe = recipes[randomIndex];
+        RecipeData previousRecipe = currentRecipe;
+
+        currentRecipe = SelectRecipeForDifficulty(
+            difficultyLevel,
+            previousRecipe
+        );
 
         if (currentRecipe == null)
         {
-            Debug.LogWarning("La receta seleccionada es nula.");
+            Debug.LogWarning(
+                "No se pudo encontrar una receta válida."
+            );
+
             return;
         }
 
@@ -99,38 +148,382 @@ public class OrderManager : MonoBehaviour
             burgerAssembly.recipe = currentRecipe;
         }
 
-        UpdateOrderUI();
+        // Calculamos el tiempo según la dificultad actual.
+        currentOrderTimeLimit =
+            CalculateOrderTime(currentRecipe, difficultyLevel);
 
-        remainingTime = currentRecipe.timeLimit;
+        remainingTime = currentOrderTimeLimit;
+
+        // IMPORTANTE:
+        // El pedido existe, pero el tiempo todavía NO empieza.
+        // CustomerController llamará a StartOrderTimer()
+        // cuando el cliente llegue al mostrador.
         orderActive = false;
+
+        UpdateOrderUI();
         UpdateTimerText();
 
-        Debug.Log("Nuevo pedido: " + currentRecipe.recipeName);
-        Debug.Log("⏱ Tiempo disponible: " + currentRecipe.timeLimit);
+        Debug.Log(
+            "🍔 Nuevo pedido: " + currentRecipe.recipeName
+        );
+
+        Debug.Log(
+            "📊 Dificultad actual: " + difficultyLevel
+        );
+
+        Debug.Log(
+            "⏱ Tiempo original: " +
+            currentRecipe.timeLimit +
+            " segundos"
+        );
+
+        Debug.Log(
+            "⏱ Tiempo ajustado: " +
+            currentOrderTimeLimit +
+            " segundos"
+        );
     }
+
+
+    // =========================================================
+    // SELECCIÓN DE RECETA SEGÚN DIFICULTAD
+    // =========================================================
+
+    private RecipeData SelectRecipeForDifficulty(
+        int difficultyLevel,
+        RecipeData previousRecipe)
+    {
+        List<RecipeData> availableRecipes =
+            new List<RecipeData>();
+
+        List<RecipeData> currentLevelRecipes =
+            new List<RecipeData>();
+
+
+        for (int i = 0; i < recipes.Length; i++)
+        {
+            RecipeData recipe = recipes[i];
+
+            if (recipe == null)
+            {
+                continue;
+            }
+
+            int recipeDifficulty =
+                Mathf.Max(1, recipe.difficulty);
+
+
+            // Se pueden usar recetas del nivel actual
+            // o de niveles anteriores.
+            if (recipeDifficulty <= difficultyLevel)
+            {
+                availableRecipes.Add(recipe);
+            }
+
+
+            // Recetas exactamente del nivel actual.
+            if (recipeDifficulty == difficultyLevel)
+            {
+                currentLevelRecipes.Add(recipe);
+            }
+        }
+
+
+        if (availableRecipes.Count == 0)
+        {
+            Debug.LogWarning(
+                "No existen recetas disponibles para dificultad " +
+                difficultyLevel
+            );
+
+            return GetAnyValidRecipe();
+        }
+
+
+        List<RecipeData> selectedPool;
+
+
+        // Desde dificultad 2 hay mayor probabilidad
+        // de recibir pedidos propios de ese nivel.
+        if (
+            difficultyLevel > 1 &&
+            currentLevelRecipes.Count > 0 &&
+            Random.value < currentDifficultyRecipeChance
+        )
+        {
+            selectedPool = currentLevelRecipes;
+        }
+        else
+        {
+            selectedPool = availableRecipes;
+        }
+
+
+        return GetRandomRecipeAvoidingRepeat(
+            selectedPool,
+            previousRecipe
+        );
+    }
+
+
+    private RecipeData GetRandomRecipeAvoidingRepeat(
+        List<RecipeData> recipeList,
+        RecipeData previousRecipe)
+    {
+        if (recipeList == null || recipeList.Count == 0)
+        {
+            return null;
+        }
+
+
+        // Si solo existe una receta disponible,
+        // no podemos evitar repetirla.
+        if (recipeList.Count == 1)
+        {
+            return recipeList[0];
+        }
+
+
+        RecipeData selectedRecipe = null;
+
+        int attempts = 0;
+
+
+        // Intentamos varias veces evitar que salga
+        // exactamente el mismo pedido dos veces seguidas.
+        while (
+            attempts < 10 &&
+            (selectedRecipe == null ||
+             selectedRecipe == previousRecipe)
+        )
+        {
+            int randomIndex =
+                Random.Range(0, recipeList.Count);
+
+            selectedRecipe =
+                recipeList[randomIndex];
+
+            attempts++;
+        }
+
+
+        return selectedRecipe;
+    }
+
+
+    private RecipeData GetAnyValidRecipe()
+    {
+        if (recipes == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < recipes.Length; i++)
+        {
+            if (recipes[i] != null)
+            {
+                return recipes[i];
+            }
+        }
+
+        return null;
+    }
+
+
+    // =========================================================
+    // DIFICULTAD
+    // =========================================================
+
+    private int GetCurrentDifficultyLevel()
+    {
+        int correctOrders = 0;
+
+
+        if (deliveryManager != null)
+        {
+            correctOrders =
+                deliveryManager.correctOrders;
+        }
+
+
+        int difficultyLevel =
+            1 + (correctOrders / correctOrdersPerLevel);
+
+
+        int maximumDifficulty =
+            GetMaximumRecipeDifficulty();
+
+
+        return Mathf.Clamp(
+            difficultyLevel,
+            1,
+            maximumDifficulty
+        );
+    }
+
+
+    private int GetMaximumRecipeDifficulty()
+    {
+        int maximumDifficulty = 1;
+
+        if (recipes == null)
+        {
+            return maximumDifficulty;
+        }
+
+
+        for (int i = 0; i < recipes.Length; i++)
+        {
+            if (recipes[i] == null)
+            {
+                continue;
+            }
+
+            int recipeDifficulty =
+                Mathf.Max(
+                    1,
+                    recipes[i].difficulty
+                );
+
+            if (recipeDifficulty > maximumDifficulty)
+            {
+                maximumDifficulty =
+                    recipeDifficulty;
+            }
+        }
+
+
+        return maximumDifficulty;
+    }
+
+
+    // =========================================================
+    // TIEMPO SEGÚN DIFICULTAD
+    // =========================================================
+
+    private float CalculateOrderTime(
+        RecipeData recipe,
+        int difficultyLevel)
+    {
+        if (recipe == null)
+        {
+            return minimumOrderTime;
+        }
+
+
+        float multiplier =
+            GetTimeMultiplier(difficultyLevel);
+
+
+        float adjustedTime =
+            recipe.timeLimit * multiplier;
+
+
+        return Mathf.Max(
+            minimumOrderTime,
+            adjustedTime
+        );
+    }
+
+
+    private float GetTimeMultiplier(
+        int difficultyLevel)
+    {
+        switch (difficultyLevel)
+        {
+            case 1:
+                return level1TimeMultiplier;
+
+            case 2:
+                return level2TimeMultiplier;
+
+            case 3:
+                return level3TimeMultiplier;
+
+            default:
+                // Si en el futuro agregas dificultad 4, 5, etc.,
+                // seguirá utilizando el multiplicador del nivel 3.
+                return level3TimeMultiplier;
+        }
+    }
+
+
+    // =========================================================
+    // INICIO DEL TEMPORIZADOR
+    // =========================================================
+
+    public void StartOrderTimer()
+    {
+        if (currentRecipe == null)
+        {
+            return;
+        }
+
+
+        // IMPORTANTE:
+        // Ya NO usamos directamente currentRecipe.timeLimit.
+        // Usamos el tiempo reducido según dificultad.
+        remainingTime = currentOrderTimeLimit;
+
+        orderActive = true;
+
+        UpdateTimerText();
+
+
+        Debug.Log(
+            "⏱️ ¡Comenzó el tiempo del pedido!"
+        );
+
+        Debug.Log(
+            "📊 Dificultad: " +
+            GetCurrentDifficultyLevel()
+        );
+
+        Debug.Log(
+            "⏱️ Tiempo disponible: " +
+            currentOrderTimeLimit +
+            " segundos"
+        );
+    }
+
+
+    // =========================================================
+    // UI DEL PEDIDO
+    // =========================================================
 
     private void UpdateOrderUI()
     {
         if (titleText != null)
         {
-            titleText.text = "PEDIDO #" + orderNumber.ToString("00");
+            titleText.text =
+                "PEDIDO #" +
+                orderNumber.ToString("00");
         }
+
 
         if (orderText != null)
         {
-            orderText.text = GetDisplayRecipeName(currentRecipe.recipeName);
+            orderText.text =
+                GetDisplayRecipeName(
+                    currentRecipe.recipeName
+                );
         }
+
 
         if (ingredientsText != null)
         {
-            ingredientsText.text = BuildIngredientsText();
+            ingredientsText.text =
+                BuildIngredientsText();
         }
+
 
         if (statusText != null)
         {
-            statusText.text = "EN PREPARACIÓN";
+            statusText.text =
+                "EN PREPARACIÓN";
         }
     }
+
 
     private string BuildIngredientsText()
     {
@@ -139,20 +532,33 @@ public class OrderManager : MonoBehaviour
             return "";
         }
 
-        StringBuilder builder = new StringBuilder();
+
+        StringBuilder builder =
+            new StringBuilder();
+
 
         if (currentRecipe.ingredients != null)
         {
-            for (int i = 0; i < currentRecipe.ingredients.Length; i++)
+            for (
+                int i = 0;
+                i < currentRecipe.ingredients.Length;
+                i++
+            )
             {
                 if (i > 0)
                 {
                     builder.Append(" • ");
                 }
 
-                builder.Append(GetDisplayIngredientName(currentRecipe.ingredients[i]));
+
+                builder.Append(
+                    GetDisplayIngredientName(
+                        currentRecipe.ingredients[i]
+                    )
+                );
             }
         }
+
 
         if (currentRecipe.includesFries)
         {
@@ -164,6 +570,7 @@ public class OrderManager : MonoBehaviour
             builder.Append("Papas");
         }
 
+
         if (currentRecipe.includesDrink)
         {
             if (builder.Length > 0)
@@ -174,36 +581,53 @@ public class OrderManager : MonoBehaviour
             builder.Append("Refresco");
         }
 
+
         return builder.ToString();
     }
 
-    private string GetDisplayRecipeName(string recipeName)
+
+    // =========================================================
+    // NOMBRES MOSTRADOS
+    // =========================================================
+
+    private string GetDisplayRecipeName(
+        string recipeName)
     {
         if (string.IsNullOrWhiteSpace(recipeName))
         {
             return "HAMBURGUESA";
         }
 
-        switch (recipeName)
+
+        string cleanName =
+            recipeName.Trim().Trim('\'', '"');
+
+
+        switch (cleanName)
         {
             case "SimpleBurguer":
             case "SimpleBurger":
                 return "HAMBURGUESA SIMPLE";
 
+
             case "CheeseBurguer":
             case "CheeseBurger":
                 return "HAMBURGUESA CON QUESO";
+
 
             case "CompleteBurguer":
             case "CompleteBurger":
                 return "HAMBURGUESA COMPLETA";
 
+
             default:
-                return recipeName.ToUpper();
+                return cleanName.ToUpper();
         }
     }
 
-    private string GetDisplayIngredientName(string ingredient)
+
+    private string GetDisplayIngredientName(
+        string ingredient)
     {
         switch (ingredient)
         {
@@ -231,30 +655,30 @@ public class OrderManager : MonoBehaviour
     }
 
 
-    public void StartOrderTimer()
-    {
-        if (currentRecipe == null)
-            return;
+    // =========================================================
+    // UI TEMPORIZADOR
+    // =========================================================
 
-        remainingTime = currentRecipe.timeLimit;
-        orderActive = true;
-
-        UpdateTimerText();
-
-        Debug.Log("⏱️ ¡Comenzó el tiempo del pedido!");
-    }
     private void UpdateTimerText()
     {
         if (timerText == null)
+        {
             return;
+        }
 
-        int seconds = Mathf.CeilToInt(remainingTime);
 
-        timerText.text = "TIEMPO: " + seconds;
+        int seconds =
+            Mathf.CeilToInt(remainingTime);
+
+
+        timerText.text =
+            "TIEMPO: " + seconds;
+
 
         if (seconds <= 10)
         {
-            timerText.text = "⚠️ TIEMPO: " + seconds;
+            timerText.text =
+                "⚠️ TIEMPO: " + seconds;
         }
     }
 }

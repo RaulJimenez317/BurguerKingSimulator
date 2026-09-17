@@ -20,11 +20,11 @@ RenderSettings:
   m_FogDensity: 0.01
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
+  m_AmbientSkyColor: {r: 0.7058824, g: 0.7058824, b: 0.7058824, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
   m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
-  m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientIntensity: 1.5
+  m_AmbientMode: 3
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   m_HaloStrength: 0.5
@@ -311,6 +311,9 @@ MonoBehaviour:
   gameOverText: {fileID: 1260286698}
   score: 20
   incorrectOrderPenalty: 50
+  penaltyDifficulty1: 50
+  penaltyDifficulty2: 120
+  penaltyDifficulty3: 180
   ordersCompleted: 0
   correctOrders: 0
   incorrectOrders: 0
@@ -1441,8 +1444,8 @@ Light:
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 1
+  m_Color: {r: 0.94716984, g: 0.9458795, b: 0.92751163, a: 1}
+  m_Intensity: 4.05
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -1451,7 +1454,7 @@ Light:
     m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 1
+    m_Strength: 0.3
     m_Bias: 0.05
     m_NormalBias: 0.4
     m_NearPlane: 0.2
@@ -5077,16 +5080,16 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'FIN DEL TURNO
 
-    
+
 
     Tu puntuacion llego a 0.
 
-    
 
-    Puntuacion
-    final: 0
 
-    
+    Puntuacion final:
+    0
+
+
 
     GAME OVER'
   m_isRightToLeft: 0
@@ -8607,6 +8610,12 @@ MonoBehaviour:
   statusText: {fileID: 551474416}
   timerText: {fileID: 1432439242}
   timeoutPenalty: 50
+  correctOrdersPerLevel: 3
+  level1TimeMultiplier: 1
+  level2TimeMultiplier: 0.85
+  level3TimeMultiplier: 0.7
+  currentDifficultyRecipeChance: 0.7
+  minimumOrderTime: 30
 --- !u!4 &1985042112
 Transform:
   m_ObjectHideFlags: 0
