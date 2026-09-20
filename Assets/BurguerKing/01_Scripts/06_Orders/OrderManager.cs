@@ -56,27 +56,71 @@ public class OrderManager : MonoBehaviour
     private bool orderActive = false;
     private int orderNumber = 0;
 
+    // Indica que este OrderManager recibió un estado
+    // cargado antes de ejecutar Start().
+    private bool restoredFromSave = false;
 
-    public float RemainingTime => remainingTime;
-    public bool OrderActive => orderActive;
-    public int CurrentDifficulty => GetCurrentDifficultyLevel();
-    public float CurrentOrderTimeLimit => currentOrderTimeLimit;
 
+    // =========================================================
+    // PROPIEDADES
+    // =========================================================
+
+    public float RemainingTime =>
+        remainingTime;
+
+    public bool OrderActive =>
+        orderActive;
+
+    public int CurrentDifficulty =>
+        GetCurrentDifficultyLevel();
+
+    public float CurrentOrderTimeLimit =>
+        currentOrderTimeLimit;
+
+    public int OrderNumber =>
+        orderNumber;
+
+
+    // =========================================================
+    // INICIO
+    // =========================================================
 
     private void Start()
     {
+        // Si DeliveryManager restauró un pedido en Awake(),
+        // NO debemos generar otro encima.
+        if (restoredFromSave)
+        {
+            UpdateOrderUI();
+            UpdateTimerText();
+
+            Debug.Log(
+                "💾 OrderManager inició usando el pedido restaurado."
+            );
+
+            return;
+        }
+
         GenerateNewOrder();
     }
 
 
+    // =========================================================
+    // UPDATE
+    // =========================================================
+
     private void Update()
     {
-        if (!orderActive || currentRecipe == null)
+        if (!orderActive ||
+            currentRecipe == null)
         {
             return;
         }
 
-        remainingTime -= Time.deltaTime;
+
+        remainingTime -=
+            Time.deltaTime;
+
 
         if (remainingTime <= 0f)
         {
@@ -86,16 +130,24 @@ public class OrderManager : MonoBehaviour
 
             orderActive = false;
 
+
             if (statusText != null)
             {
-                statusText.text = "TIEMPO AGOTADO";
+                statusText.text =
+                    "TIEMPO AGOTADO";
             }
 
-            Debug.Log("⏰ ¡Se acabó el tiempo!");
+
+            Debug.Log(
+                "⏰ ¡Se acabó el tiempo!"
+            );
+
 
             if (deliveryManager != null)
             {
-                deliveryManager.HandleTimeout(timeoutPenalty);
+                deliveryManager.HandleTimeout(
+                    timeoutPenalty
+                );
             }
             else
             {
@@ -104,8 +156,10 @@ public class OrderManager : MonoBehaviour
                 );
             }
 
+
             return;
         }
+
 
         UpdateTimerText();
     }
@@ -117,20 +171,36 @@ public class OrderManager : MonoBehaviour
 
     public void GenerateNewOrder()
     {
-        if (recipes == null || recipes.Length == 0)
+        if (recipes == null ||
+            recipes.Length == 0)
         {
-            Debug.LogWarning("No hay recetas configuradas.");
+            Debug.LogWarning(
+                "No hay recetas configuradas."
+            );
+
             return;
         }
 
-        int difficultyLevel = GetCurrentDifficultyLevel();
 
-        RecipeData previousRecipe = currentRecipe;
+        // Ya no estamos trabajando con
+        // un pedido restaurado.
+        restoredFromSave = false;
 
-        currentRecipe = SelectRecipeForDifficulty(
-            difficultyLevel,
-            previousRecipe
-        );
+
+        int difficultyLevel =
+            GetCurrentDifficultyLevel();
+
+
+        RecipeData previousRecipe =
+            currentRecipe;
+
+
+        currentRecipe =
+            SelectRecipeForDifficulty(
+                difficultyLevel,
+                previousRecipe
+            );
+
 
         if (currentRecipe == null)
         {
@@ -141,35 +211,54 @@ public class OrderManager : MonoBehaviour
             return;
         }
 
+
         orderNumber++;
+
 
         if (burgerAssembly != null)
         {
-            burgerAssembly.recipe = currentRecipe;
+            burgerAssembly.recipe =
+                currentRecipe;
         }
 
-        // Calculamos el tiempo según la dificultad actual.
+
         currentOrderTimeLimit =
-            CalculateOrderTime(currentRecipe, difficultyLevel);
+            CalculateOrderTime(
+                currentRecipe,
+                difficultyLevel
+            );
 
-        remainingTime = currentOrderTimeLimit;
 
-        // IMPORTANTE:
-        // El pedido existe, pero el tiempo todavía NO empieza.
-        // CustomerController llamará a StartOrderTimer()
-        // cuando el cliente llegue al mostrador.
+        remainingTime =
+            currentOrderTimeLimit;
+
+
+        // El cliente debe llegar al mostrador
+        // antes de iniciar el contador.
         orderActive = false;
+
 
         UpdateOrderUI();
         UpdateTimerText();
 
-        Debug.Log(
-            "🍔 Nuevo pedido: " + currentRecipe.recipeName
-        );
 
         Debug.Log(
-            "📊 Dificultad actual: " + difficultyLevel
+            "🍔 Nuevo pedido: " +
+            currentRecipe.recipeName
         );
+
+
+        Debug.Log(
+            "📦 Pedido #" +
+            orderNumber
+        );
+
+
+        Debug.Log(
+            "📊 Dificultad actual: " +
+            difficultyLevel
+        );
+
 
         Debug.Log(
             "⏱ Tiempo original: " +
@@ -177,11 +266,361 @@ public class OrderManager : MonoBehaviour
             " segundos"
         );
 
+
         Debug.Log(
             "⏱ Tiempo ajustado: " +
             currentOrderTimeLimit +
             " segundos"
         );
+    }
+
+
+    // =========================================================
+    // CREAR DATOS DE GUARDADO DEL PEDIDO
+    // =========================================================
+
+    public SaveManager.OrderSaveData CreateSaveData()
+    {
+        SaveManager.OrderSaveData data =
+            new SaveManager.OrderSaveData();
+
+
+        data.hasOrder =
+            currentRecipe != null;
+
+
+        if (currentRecipe != null)
+        {
+            data.recipeName =
+                currentRecipe.recipeName;
+
+            data.recipeIndex =
+                GetRecipeIndex(
+                    currentRecipe
+                );
+        }
+        else
+        {
+            data.recipeName =
+                "";
+
+            data.recipeIndex =
+                -1;
+        }
+
+
+        data.remainingTime =
+            Mathf.Max(
+                0f,
+                remainingTime
+            );
+
+
+        data.currentOrderTimeLimit =
+            Mathf.Max(
+                0f,
+                currentOrderTimeLimit
+            );
+
+
+        data.orderActive =
+            orderActive;
+
+
+        data.orderNumber =
+            Mathf.Max(
+                0,
+                orderNumber
+            );
+
+
+        data.difficulty =
+            GetCurrentDifficultyLevel();
+
+
+        return data;
+    }
+
+
+    // =========================================================
+    // RESTAURAR PEDIDO GUARDADO
+    // =========================================================
+
+    public bool RestoreFromSaveData(
+        SaveManager.OrderSaveData data)
+    {
+        if (data == null)
+        {
+            Debug.LogWarning(
+                "No existen datos del pedido para restaurar."
+            );
+
+            return false;
+        }
+
+
+        if (!data.hasOrder)
+        {
+            Debug.LogWarning(
+                "El guardado no contiene un pedido activo."
+            );
+
+            return false;
+        }
+
+
+        RecipeData savedRecipe =
+            FindSavedRecipe(
+                data
+            );
+
+
+        if (savedRecipe == null)
+        {
+            Debug.LogWarning(
+                "No se pudo encontrar la receta guardada: " +
+                data.recipeName
+            );
+
+            return false;
+        }
+
+
+        currentRecipe =
+            savedRecipe;
+
+
+        // -----------------------------------------------------
+        // RESTAURAR NÚMERO DE PEDIDO
+        // -----------------------------------------------------
+
+        orderNumber =
+            Mathf.Max(
+                1,
+                data.orderNumber
+            );
+
+
+        // -----------------------------------------------------
+        // RESTAURAR LÍMITE DE TIEMPO
+        // -----------------------------------------------------
+
+        if (data.currentOrderTimeLimit > 0f)
+        {
+            currentOrderTimeLimit =
+                data.currentOrderTimeLimit;
+        }
+        else
+        {
+            int savedDifficulty =
+                Mathf.Max(
+                    1,
+                    data.difficulty
+                );
+
+
+            currentOrderTimeLimit =
+                CalculateOrderTime(
+                    currentRecipe,
+                    savedDifficulty
+                );
+        }
+
+
+        // -----------------------------------------------------
+        // RESTAURAR TIEMPO RESTANTE
+        // -----------------------------------------------------
+
+        remainingTime =
+            Mathf.Clamp(
+                data.remainingTime,
+                0f,
+                currentOrderTimeLimit
+            );
+
+
+        // Si por alguna razón un guardado antiguo
+        // no tenía remainingTime correctamente,
+        // usamos el tiempo completo.
+        if (
+            remainingTime <= 0f &&
+            !data.orderActive
+        )
+        {
+            remainingTime =
+                currentOrderTimeLimit;
+        }
+
+
+        // -----------------------------------------------------
+        // RESTAURAR ESTADO DEL CONTADOR
+        // -----------------------------------------------------
+
+        orderActive =
+            data.orderActive &&
+            remainingTime > 0f;
+
+
+        // -----------------------------------------------------
+        // RESTAURAR RECETA DEL ASSEMBLY
+        // -----------------------------------------------------
+
+        if (burgerAssembly != null)
+        {
+            burgerAssembly.recipe =
+                currentRecipe;
+        }
+
+
+        restoredFromSave =
+            true;
+
+
+        UpdateOrderUI();
+        UpdateTimerText();
+
+
+        Debug.Log(
+            "💾 Pedido restaurado correctamente."
+        );
+
+
+        Debug.Log(
+            "🍔 Receta restaurada: " +
+            currentRecipe.recipeName
+        );
+
+
+        Debug.Log(
+            "📦 Pedido #" +
+            orderNumber
+        );
+
+
+        Debug.Log(
+            "⏱ Tiempo restante: " +
+            remainingTime
+        );
+
+
+        Debug.Log(
+            "▶ Temporizador activo: " +
+            orderActive
+        );
+
+
+        return true;
+    }
+
+
+    // =========================================================
+    // BUSCAR RECETA GUARDADA
+    // =========================================================
+
+    private RecipeData FindSavedRecipe(
+        SaveManager.OrderSaveData data)
+    {
+        if (recipes == null ||
+            recipes.Length == 0)
+        {
+            return null;
+        }
+
+
+        // Primero buscamos por índice.
+        // Es la forma más directa si el array
+        // de recetas no fue modificado.
+        if (
+            data.recipeIndex >= 0 &&
+            data.recipeIndex < recipes.Length
+        )
+        {
+            RecipeData indexedRecipe =
+                recipes[data.recipeIndex];
+
+
+            if (indexedRecipe != null)
+            {
+                // Además comprobamos el nombre cuando existe
+                // para evitar cargar una receta equivocada
+                // si el array cambió de orden.
+                if (
+                    string.IsNullOrEmpty(
+                        data.recipeName
+                    ) ||
+                    indexedRecipe.recipeName ==
+                    data.recipeName
+                )
+                {
+                    return indexedRecipe;
+                }
+            }
+        }
+
+
+        // Si el índice cambió, buscamos por nombre.
+        if (!string.IsNullOrEmpty(
+            data.recipeName))
+        {
+            for (
+                int i = 0;
+                i < recipes.Length;
+                i++
+            )
+            {
+                RecipeData recipe =
+                    recipes[i];
+
+
+                if (recipe == null)
+                {
+                    continue;
+                }
+
+
+                if (
+                    recipe.recipeName ==
+                    data.recipeName
+                )
+                {
+                    return recipe;
+                }
+            }
+        }
+
+
+        return null;
+    }
+
+
+    // =========================================================
+    // OBTENER ÍNDICE DE RECETA
+    // =========================================================
+
+    private int GetRecipeIndex(
+        RecipeData recipe)
+    {
+        if (recipe == null ||
+            recipes == null)
+        {
+            return -1;
+        }
+
+
+        for (
+            int i = 0;
+            i < recipes.Length;
+            i++
+        )
+        {
+            if (recipes[i] == recipe)
+            {
+                return i;
+            }
+        }
+
+
+        return -1;
     }
 
 
@@ -196,35 +635,49 @@ public class OrderManager : MonoBehaviour
         List<RecipeData> availableRecipes =
             new List<RecipeData>();
 
+
         List<RecipeData> currentLevelRecipes =
             new List<RecipeData>();
 
 
-        for (int i = 0; i < recipes.Length; i++)
+        for (
+            int i = 0;
+            i < recipes.Length;
+            i++
+        )
         {
-            RecipeData recipe = recipes[i];
+            RecipeData recipe =
+                recipes[i];
+
 
             if (recipe == null)
             {
                 continue;
             }
 
+
             int recipeDifficulty =
-                Mathf.Max(1, recipe.difficulty);
+                Mathf.Max(
+                    1,
+                    recipe.difficulty
+                );
 
 
-            // Se pueden usar recetas del nivel actual
-            // o de niveles anteriores.
-            if (recipeDifficulty <= difficultyLevel)
+            if (recipeDifficulty <=
+                difficultyLevel)
             {
-                availableRecipes.Add(recipe);
+                availableRecipes.Add(
+                    recipe
+                );
             }
 
 
-            // Recetas exactamente del nivel actual.
-            if (recipeDifficulty == difficultyLevel)
+            if (recipeDifficulty ==
+                difficultyLevel)
             {
-                currentLevelRecipes.Add(recipe);
+                currentLevelRecipes.Add(
+                    recipe
+                );
             }
         }
 
@@ -236,33 +689,37 @@ public class OrderManager : MonoBehaviour
                 difficultyLevel
             );
 
-            return GetAnyValidRecipe();
+
+            return
+                GetAnyValidRecipe();
         }
 
 
         List<RecipeData> selectedPool;
 
 
-        // Desde dificultad 2 hay mayor probabilidad
-        // de recibir pedidos propios de ese nivel.
         if (
             difficultyLevel > 1 &&
             currentLevelRecipes.Count > 0 &&
-            Random.value < currentDifficultyRecipeChance
+            Random.value <
+            currentDifficultyRecipeChance
         )
         {
-            selectedPool = currentLevelRecipes;
+            selectedPool =
+                currentLevelRecipes;
         }
         else
         {
-            selectedPool = availableRecipes;
+            selectedPool =
+                availableRecipes;
         }
 
 
-        return GetRandomRecipeAvoidingRepeat(
-            selectedPool,
-            previousRecipe
-        );
+        return
+            GetRandomRecipeAvoidingRepeat(
+                selectedPool,
+                previousRecipe
+            );
     }
 
 
@@ -270,38 +727,47 @@ public class OrderManager : MonoBehaviour
         List<RecipeData> recipeList,
         RecipeData previousRecipe)
     {
-        if (recipeList == null || recipeList.Count == 0)
+        if (
+            recipeList == null ||
+            recipeList.Count == 0
+        )
         {
             return null;
         }
 
 
-        // Si solo existe una receta disponible,
-        // no podemos evitar repetirla.
         if (recipeList.Count == 1)
         {
             return recipeList[0];
         }
 
 
-        RecipeData selectedRecipe = null;
+        RecipeData selectedRecipe =
+            null;
+
 
         int attempts = 0;
 
 
-        // Intentamos varias veces evitar que salga
-        // exactamente el mismo pedido dos veces seguidas.
         while (
             attempts < 10 &&
-            (selectedRecipe == null ||
-             selectedRecipe == previousRecipe)
+            (
+                selectedRecipe == null ||
+                selectedRecipe ==
+                previousRecipe
+            )
         )
         {
             int randomIndex =
-                Random.Range(0, recipeList.Count);
+                Random.Range(
+                    0,
+                    recipeList.Count
+                );
+
 
             selectedRecipe =
                 recipeList[randomIndex];
+
 
             attempts++;
         }
@@ -318,13 +784,19 @@ public class OrderManager : MonoBehaviour
             return null;
         }
 
-        for (int i = 0; i < recipes.Length; i++)
+
+        for (
+            int i = 0;
+            i < recipes.Length;
+            i++
+        )
         {
             if (recipes[i] != null)
             {
                 return recipes[i];
             }
         }
+
 
         return null;
     }
@@ -342,29 +814,48 @@ public class OrderManager : MonoBehaviour
         if (deliveryManager != null)
         {
             correctOrders =
-                deliveryManager.correctOrders;
+                Mathf.Max(
+                    0,
+                    deliveryManager.correctOrders
+                );
         }
 
 
+        // Protección adicional para evitar una
+        // división entre cero.
+        int safeOrdersPerLevel =
+            Mathf.Max(
+                1,
+                correctOrdersPerLevel
+            );
+
+
         int difficultyLevel =
-            1 + (correctOrders / correctOrdersPerLevel);
+            1 +
+            (
+                correctOrders /
+                safeOrdersPerLevel
+            );
 
 
         int maximumDifficulty =
             GetMaximumRecipeDifficulty();
 
 
-        return Mathf.Clamp(
-            difficultyLevel,
-            1,
-            maximumDifficulty
-        );
+        return
+            Mathf.Clamp(
+                difficultyLevel,
+                1,
+                maximumDifficulty
+            );
     }
 
 
     private int GetMaximumRecipeDifficulty()
     {
-        int maximumDifficulty = 1;
+        int maximumDifficulty =
+            1;
+
 
         if (recipes == null)
         {
@@ -372,12 +863,17 @@ public class OrderManager : MonoBehaviour
         }
 
 
-        for (int i = 0; i < recipes.Length; i++)
+        for (
+            int i = 0;
+            i < recipes.Length;
+            i++
+        )
         {
             if (recipes[i] == null)
             {
                 continue;
             }
+
 
             int recipeDifficulty =
                 Mathf.Max(
@@ -385,7 +881,9 @@ public class OrderManager : MonoBehaviour
                     recipes[i].difficulty
                 );
 
-            if (recipeDifficulty > maximumDifficulty)
+
+            if (recipeDifficulty >
+                maximumDifficulty)
             {
                 maximumDifficulty =
                     recipeDifficulty;
@@ -407,22 +905,30 @@ public class OrderManager : MonoBehaviour
     {
         if (recipe == null)
         {
-            return minimumOrderTime;
+            return
+                Mathf.Max(
+                    1f,
+                    minimumOrderTime
+                );
         }
 
 
         float multiplier =
-            GetTimeMultiplier(difficultyLevel);
+            GetTimeMultiplier(
+                difficultyLevel
+            );
 
 
         float adjustedTime =
-            recipe.timeLimit * multiplier;
+            recipe.timeLimit *
+            multiplier;
 
 
-        return Mathf.Max(
-            minimumOrderTime,
-            adjustedTime
-        );
+        return
+            Mathf.Max(
+                minimumOrderTime,
+                adjustedTime
+            );
     }
 
 
@@ -432,18 +938,27 @@ public class OrderManager : MonoBehaviour
         switch (difficultyLevel)
         {
             case 1:
-                return level1TimeMultiplier;
+
+                return
+                    level1TimeMultiplier;
+
 
             case 2:
-                return level2TimeMultiplier;
+
+                return
+                    level2TimeMultiplier;
+
 
             case 3:
-                return level3TimeMultiplier;
+
+                return
+                    level3TimeMultiplier;
+
 
             default:
-                // Si en el futuro agregas dificultad 4, 5, etc.,
-                // seguirá utilizando el multiplicador del nivel 3.
-                return level3TimeMultiplier;
+
+                return
+                    level3TimeMultiplier;
         }
     }
 
@@ -460,12 +975,38 @@ public class OrderManager : MonoBehaviour
         }
 
 
-        // IMPORTANTE:
-        // Ya NO usamos directamente currentRecipe.timeLimit.
-        // Usamos el tiempo reducido según dificultad.
-        remainingTime = currentOrderTimeLimit;
+        // Evitamos reiniciar accidentalmente
+        // un contador que ya está funcionando.
+        if (orderActive)
+        {
+            return;
+        }
 
-        orderActive = true;
+
+        // Si este pedido vino de un guardado,
+        // conservamos exactamente su tiempo restante.
+        if (restoredFromSave)
+        {
+            if (remainingTime <= 0f)
+            {
+                remainingTime =
+                    currentOrderTimeLimit;
+            }
+
+
+            restoredFromSave =
+                false;
+        }
+        else
+        {
+            remainingTime =
+                currentOrderTimeLimit;
+        }
+
+
+        orderActive =
+            true;
+
 
         UpdateTimerText();
 
@@ -474,16 +1015,30 @@ public class OrderManager : MonoBehaviour
             "⏱️ ¡Comenzó el tiempo del pedido!"
         );
 
+
         Debug.Log(
             "📊 Dificultad: " +
             GetCurrentDifficultyLevel()
         );
 
+
         Debug.Log(
             "⏱️ Tiempo disponible: " +
-            currentOrderTimeLimit +
+            remainingTime +
             " segundos"
         );
+    }
+
+
+    // =========================================================
+    // DETENER TEMPORIZADOR
+    // =========================================================
+
+    public void StopOrderTimer()
+    {
+        orderActive = false;
+
+        UpdateTimerText();
     }
 
 
@@ -493,11 +1048,19 @@ public class OrderManager : MonoBehaviour
 
     private void UpdateOrderUI()
     {
+        if (currentRecipe == null)
+        {
+            return;
+        }
+
+
         if (titleText != null)
         {
             titleText.text =
                 "PEDIDO #" +
-                orderNumber.ToString("00");
+                orderNumber.ToString(
+                    "00"
+                );
         }
 
 
@@ -541,13 +1104,16 @@ public class OrderManager : MonoBehaviour
         {
             for (
                 int i = 0;
-                i < currentRecipe.ingredients.Length;
+                i <
+                currentRecipe.ingredients.Length;
                 i++
             )
             {
                 if (i > 0)
                 {
-                    builder.Append(" • ");
+                    builder.Append(
+                        " • "
+                    );
                 }
 
 
@@ -564,10 +1130,15 @@ public class OrderManager : MonoBehaviour
         {
             if (builder.Length > 0)
             {
-                builder.Append(" • ");
+                builder.Append(
+                    " • "
+                );
             }
 
-            builder.Append("Papas");
+
+            builder.Append(
+                "Papas"
+            );
         }
 
 
@@ -575,14 +1146,20 @@ public class OrderManager : MonoBehaviour
         {
             if (builder.Length > 0)
             {
-                builder.Append(" • ");
+                builder.Append(
+                    " • "
+                );
             }
 
-            builder.Append("Refresco");
+
+            builder.Append(
+                "Refresco"
+            );
         }
 
 
-        return builder.ToString();
+        return
+            builder.ToString();
     }
 
 
@@ -593,35 +1170,50 @@ public class OrderManager : MonoBehaviour
     private string GetDisplayRecipeName(
         string recipeName)
     {
-        if (string.IsNullOrWhiteSpace(recipeName))
+        if (string.IsNullOrWhiteSpace(
+            recipeName))
         {
-            return "HAMBURGUESA";
+            return
+                "HAMBURGUESA";
         }
 
 
         string cleanName =
-            recipeName.Trim().Trim('\'', '"');
+            recipeName
+                .Trim()
+                .Trim(
+                    '\'',
+                    '"'
+                );
 
 
         switch (cleanName)
         {
             case "SimpleBurguer":
             case "SimpleBurger":
-                return "HAMBURGUESA SIMPLE";
+
+                return
+                    "HAMBURGUESA SIMPLE";
 
 
             case "CheeseBurguer":
             case "CheeseBurger":
-                return "HAMBURGUESA CON QUESO";
+
+                return
+                    "HAMBURGUESA CON QUESO";
 
 
             case "CompleteBurguer":
             case "CompleteBurger":
-                return "HAMBURGUESA COMPLETA";
+
+                return
+                    "HAMBURGUESA COMPLETA";
 
 
             default:
-                return cleanName.ToUpper();
+
+                return
+                    cleanName.ToUpper();
         }
     }
 
@@ -632,25 +1224,45 @@ public class OrderManager : MonoBehaviour
         switch (ingredient)
         {
             case "BreadBottom":
-                return "Pan inferior";
+
+                return
+                    "Pan inferior";
+
 
             case "BreadTop":
-                return "Pan superior";
+
+                return
+                    "Pan superior";
+
 
             case "Meat":
-                return "Carne";
+
+                return
+                    "Carne";
+
 
             case "Cheese":
-                return "Queso";
+
+                return
+                    "Queso";
+
 
             case "Lettuce":
-                return "Lechuga";
+
+                return
+                    "Lechuga";
+
 
             case "Tomato":
-                return "Tomate";
+
+                return
+                    "Tomate";
+
 
             default:
-                return ingredient;
+
+                return
+                    ingredient;
         }
     }
 
@@ -668,17 +1280,24 @@ public class OrderManager : MonoBehaviour
 
 
         int seconds =
-            Mathf.CeilToInt(remainingTime);
+            Mathf.CeilToInt(
+                Mathf.Max(
+                    0f,
+                    remainingTime
+                )
+            );
 
 
         timerText.text =
-            "TIEMPO: " + seconds;
+            "TIEMPO: " +
+            seconds;
 
 
         if (seconds <= 10)
         {
             timerText.text =
-                "⚠️ TIEMPO: " + seconds;
+                "⚠️ TIEMPO: " +
+                seconds;
         }
     }
 }

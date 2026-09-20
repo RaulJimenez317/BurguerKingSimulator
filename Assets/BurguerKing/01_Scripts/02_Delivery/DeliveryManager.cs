@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
@@ -23,11 +24,25 @@ public class DeliveryManager : MonoBehaviour
 
     [Header("PUNTUACIÓN")]
     public int score = 20;
-
-    // Se mantiene para compatibilidad y como valor de respaldo.
     public int incorrectOrderPenalty = 50;
 
     private int highestScore = 0;
+
+    public int HighestScore
+    {
+        get
+        {
+            return highestScore;
+        }
+    }
+
+    public bool IsProcessingDelivery
+    {
+        get
+        {
+            return processingDelivery;
+        }
+    }
 
     [Header("PENALIZACIÓN POR DIFICULTAD")]
     [Tooltip("Penalización en dificultad 1.")]
@@ -56,7 +71,7 @@ public class DeliveryManager : MonoBehaviour
     private bool processingDelivery = false;
     private bool orderManagerWasEnabled = true;
     private Coroutine finishCoroutine;
-
+    private bool gameResultSaved = false;
 
     private enum FinishType
     {
@@ -65,17 +80,1076 @@ public class DeliveryManager : MonoBehaviour
         Timeout
     }
 
+    private void Awake()
+    {
+        highestScore =
+            Mathf.Max(
+                0,
+                score
+            );
+
+        LoadSavedGameIfRequested();
+    }
 
     private void Start()
     {
-        highestScore = score;
         UpdateScoreText();
     }
 
+    private void LoadSavedGameIfRequested()
+    {
+        if (!SaveManager.ConsumeLoadRequest())
+        {
+            return;
+        }
 
-    // =========================================================
-    // ENTREGAR PEDIDO
-    // =========================================================
+        SaveManager.GameSaveData savedGame =
+            SaveManager.LoadCurrentGame();
+
+        if (savedGame == null)
+        {
+            Debug.LogWarning(
+                "No se pudo cargar la partida guardada."
+            );
+
+            return;
+        }
+
+        score =
+            Mathf.Max(
+                0,
+                savedGame.score
+            );
+
+        highestScore =
+            Mathf.Max(
+                savedGame.highestScore,
+                score
+            );
+
+        ordersCompleted =
+            Mathf.Max(
+                0,
+                savedGame.ordersCompleted
+            );
+
+        correctOrders =
+            Mathf.Max(
+                0,
+                savedGame.correctOrders
+            );
+
+        incorrectOrders =
+            Mathf.Max(
+                0,
+                savedGame.incorrectOrders
+            );
+
+        processingDelivery = false;
+        gameResultSaved = false;
+
+        bool orderRestored = false;
+        bool assemblyRestored = false;
+        bool customerRestored = false;
+
+        if (orderManager != null &&
+            savedGame.order != null &&
+            savedGame.order.hasOrder)
+        {
+            orderRestored =
+                orderManager.RestoreFromSaveData(
+                    savedGame.order
+                );
+        }
+
+        if (orderRestored &&
+            assembly != null &&
+            savedGame.assembly != null &&
+            savedGame.assembly.hasAssemblyData)
+        {
+            assemblyRestored =
+                assembly.RestoreFromSaveData(
+                    savedGame.assembly
+                );
+        }
+
+        if (orderRestored &&
+            customerSpawner != null &&
+            savedGame.customer != null &&
+            savedGame.customer.exists)
+        {
+            customerRestored =
+                customerSpawner.RestoreFromSaveData(
+                    savedGame.customer
+                );
+        }
+
+        RestoreWorldItems(
+            savedGame
+        );
+
+        Debug.Log(
+            "💾 Partida cargada correctamente."
+        );
+
+        Debug.Log(
+            "🏆 Puntuación actual: " +
+            score
+        );
+
+        Debug.Log(
+            "⭐ Puntuación máxima: " +
+            highestScore
+        );
+
+        Debug.Log(
+            "📦 Pedidos atendidos: " +
+            ordersCompleted
+        );
+
+        Debug.Log(
+            "✅ Pedidos correctos: " +
+            correctOrders
+        );
+
+        Debug.Log(
+            "❌ Pedidos incorrectos: " +
+            incorrectOrders
+        );
+
+        if (savedGame.order != null &&
+            savedGame.order.hasOrder)
+        {
+            if (orderRestored)
+            {
+                Debug.Log(
+                    "🍔 Pedido guardado restaurado correctamente."
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "No se pudo restaurar el pedido guardado."
+                );
+            }
+        }
+
+        if (savedGame.assembly != null &&
+            savedGame.assembly.hasAssemblyData)
+        {
+            if (assemblyRestored)
+            {
+                Debug.Log(
+                    "🥬 Hamburguesa restaurada correctamente."
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "No se pudo restaurar el estado de la hamburguesa."
+                );
+            }
+        }
+
+        if (savedGame.customer != null &&
+            savedGame.customer.exists)
+        {
+            if (customerRestored)
+            {
+                Debug.Log(
+                    "👤 Cliente restaurado correctamente."
+                );
+            }
+            else
+            {
+                Debug.LogWarning(
+                    "No se pudo restaurar el cliente guardado."
+                );
+            }
+        }
+    }
+
+    public SaveManager.GameSaveData CreateSaveData()
+    {
+        SaveManager.GameSaveData gameData =
+            new SaveManager.GameSaveData(
+                Mathf.Max(
+                    0,
+                    score
+                ),
+                Mathf.Max(
+                    highestScore,
+                    score
+                ),
+                Mathf.Max(
+                    0,
+                    ordersCompleted
+                ),
+                Mathf.Max(
+                    0,
+                    correctOrders
+                ),
+                Mathf.Max(
+                    0,
+                    incorrectOrders
+                )
+            );
+
+        if (processingDelivery)
+        {
+            gameData.hasFullGameState =
+                false;
+
+            return gameData;
+        }
+
+        bool orderSaved = false;
+        bool assemblySaved = false;
+        bool customerSaved = false;
+
+        if (orderManager != null)
+        {
+            SaveManager.OrderSaveData orderData =
+                orderManager.CreateSaveData();
+
+            if (orderData != null)
+            {
+                gameData.order =
+                    orderData;
+
+                orderSaved =
+                    orderData.hasOrder;
+            }
+        }
+
+        if (assembly != null)
+        {
+            SaveManager.AssemblySaveData assemblyData =
+                assembly.CreateSaveData();
+
+            if (assemblyData != null)
+            {
+                gameData.assembly =
+                    assemblyData;
+
+                assemblySaved =
+                    assemblyData.hasAssemblyData;
+            }
+        }
+
+        if (customerSpawner != null)
+        {
+            SaveManager.CustomerSaveData customerData =
+                customerSpawner.CreateSaveData();
+
+            if (customerData != null)
+            {
+                gameData.customer =
+                    customerData;
+
+                customerSaved =
+                    customerData.exists;
+            }
+        }
+
+        SaveWorldItems(
+            gameData
+        );
+
+        gameData.hasFullGameState =
+            orderSaved &&
+            assemblySaved &&
+            customerSaved;
+
+        return gameData;
+    }
+
+    public bool SaveCurrentGame()
+    {
+        if (processingDelivery)
+        {
+            Debug.LogWarning(
+                "No se puede guardar mientras se procesa un pedido."
+            );
+
+            return false;
+        }
+
+        if (score <= 0)
+        {
+            Debug.LogWarning(
+                "No se puede guardar una partida terminada."
+            );
+
+            return false;
+        }
+
+        SaveManager.GameSaveData gameData =
+            CreateSaveData();
+
+        if (gameData == null)
+        {
+            Debug.LogWarning(
+                "No se pudieron crear los datos de guardado."
+            );
+
+            return false;
+        }
+
+        SaveManager.SaveCurrentGame(
+            gameData
+        );
+
+        return true;
+    }
+
+    private void SaveWorldItems(
+        SaveManager.GameSaveData gameData)
+    {
+        if (gameData == null)
+        {
+            return;
+        }
+
+        if (gameData.worldItems == null)
+        {
+            gameData.worldItems =
+                new List<SaveManager.WorldItemSaveData>();
+        }
+        else
+        {
+            gameData.worldItems.Clear();
+        }
+
+        DrinkCup[] drinks =
+            Object.FindObjectsByType<DrinkCup>(
+                FindObjectsSortMode.None
+            );
+
+        for (int i = 0;
+             i < drinks.Length;
+             i++)
+        {
+            DrinkCup drink =
+                drinks[i];
+
+            if (drink == null ||
+                !drink.gameObject.scene.IsValid())
+            {
+                continue;
+            }
+
+            SaveManager.WorldItemSaveData itemData =
+                drink.CreateSaveData();
+
+            if (itemData != null)
+            {
+                gameData.worldItems.Add(
+                    itemData
+                );
+            }
+        }
+
+        FriesBag[] fries =
+            Object.FindObjectsByType<FriesBag>(
+                FindObjectsSortMode.None
+            );
+
+        for (int i = 0;
+             i < fries.Length;
+             i++)
+        {
+            FriesBag friesBag =
+                fries[i];
+
+            if (friesBag == null ||
+                !friesBag.gameObject.scene.IsValid())
+            {
+                continue;
+            }
+
+            SaveManager.WorldItemSaveData itemData =
+                friesBag.CreateSaveData();
+
+            if (itemData != null)
+            {
+                gameData.worldItems.Add(
+                    itemData
+                );
+            }
+        }
+
+        IngredientDispenser[] dispensers =
+            Object.FindObjectsByType<IngredientDispenser>(
+                FindObjectsSortMode.None
+            );
+
+        HashSet<GameObject> savedIngredients =
+            new HashSet<GameObject>();
+
+        for (int i = 0;
+             i < dispensers.Length;
+             i++)
+        {
+            IngredientDispenser dispenser =
+                dispensers[i];
+
+            if (dispenser == null)
+            {
+                continue;
+            }
+
+            List<GameObject> ingredients =
+                dispenser.GetSpawnedIngredients();
+
+            for (int j = 0;
+                 j < ingredients.Count;
+                 j++)
+            {
+                GameObject ingredient =
+                    ingredients[j];
+
+                if (ingredient == null ||
+                    !ingredient.scene.IsValid())
+                {
+                    continue;
+                }
+
+                if (savedIngredients.Contains(
+                    ingredient))
+                {
+                    continue;
+                }
+
+                if (assembly != null &&
+                    assembly.ContainsPlacedIngredient(
+                        ingredient))
+                {
+                    continue;
+                }
+
+                SaveManager.WorldItemSaveData itemData =
+                    CreateIngredientSaveData(
+                        ingredient,
+                        dispenser
+                    );
+
+                if (itemData == null)
+                {
+                    continue;
+                }
+
+                gameData.worldItems.Add(
+                    itemData
+                );
+
+                savedIngredients.Add(
+                    ingredient
+                );
+            }
+        }
+    }
+
+    private SaveManager.WorldItemSaveData
+        CreateIngredientSaveData(
+            GameObject ingredient,
+            IngredientDispenser dispenser)
+    {
+        if (ingredient == null)
+        {
+            return null;
+        }
+
+        SaveManager.WorldItemSaveData data =
+            new SaveManager.WorldItemSaveData();
+
+        data.itemType =
+            "Ingredient";
+
+        data.objectName =
+            GetCleanObjectName(
+                ingredient.name
+            );
+
+        if (dispenser != null &&
+            dispenser.IngredientPrefab != null)
+        {
+            data.prefabName =
+                GetCleanObjectName(
+                    dispenser.IngredientPrefab.name
+                );
+        }
+        else
+        {
+            data.prefabName =
+                data.objectName;
+        }
+
+        data.active =
+            ingredient.activeSelf;
+
+        data.position =
+            new SaveManager.Vector3Data(
+                ingredient.transform.position
+            );
+
+        data.rotation =
+            new SaveManager.QuaternionData(
+                ingredient.transform.rotation
+            );
+
+        data.scale =
+            new SaveManager.Vector3Data(
+                ingredient.transform.localScale
+            );
+
+        MeatCooking meatCooking =
+            ingredient.GetComponent<MeatCooking>();
+
+        if (meatCooking == null)
+        {
+            meatCooking =
+                ingredient.GetComponentInChildren
+                    <MeatCooking>();
+        }
+
+        if (meatCooking != null)
+        {
+            data.hasMeatCooking =
+                true;
+
+            data.cookingState =
+                (int)meatCooking.CurrentState;
+
+            data.cookingProgress =
+                meatCooking.CookingProgress;
+
+            data.onGrill =
+                meatCooking.IsOnGrill;
+        }
+
+        return data;
+    }
+
+    private void RestoreWorldItems(
+        SaveManager.GameSaveData gameData)
+    {
+        if (gameData == null ||
+            gameData.worldItems == null)
+        {
+            return;
+        }
+
+        if (deliveryZone != null)
+        {
+            deliveryZone.ClearDeliveryZone();
+        }
+
+        ClearExistingDrinks();
+        ClearExistingFries();
+        ClearExistingLooseIngredients();
+
+        DrinkDispenser drinkDispenser =
+            Object.FindFirstObjectByType
+                <DrinkDispenser>();
+
+        FriesDispenser friesDispenser =
+            Object.FindFirstObjectByType
+                <FriesDispenser>();
+
+        for (int i = 0;
+             i < gameData.worldItems.Count;
+             i++)
+        {
+            SaveManager.WorldItemSaveData itemData =
+                gameData.worldItems[i];
+
+            if (itemData == null)
+            {
+                continue;
+            }
+
+            if (itemData.itemType == "Drink")
+            {
+                RestoreDrink(
+                    itemData,
+                    drinkDispenser
+                );
+            }
+            else if (itemData.itemType == "Fries")
+            {
+                RestoreFries(
+                    itemData,
+                    friesDispenser
+                );
+            }
+            else if (itemData.itemType == "Ingredient")
+            {
+                RestoreIngredient(
+                    itemData
+                );
+            }
+        }
+    }
+
+    private void ClearExistingDrinks()
+    {
+        DrinkCup[] existingDrinks =
+            Object.FindObjectsByType<DrinkCup>(
+                FindObjectsSortMode.None
+            );
+
+        for (int i = 0;
+             i < existingDrinks.Length;
+             i++)
+        {
+            if (existingDrinks[i] == null)
+            {
+                continue;
+            }
+
+            existingDrinks[i]
+                .gameObject
+                .SetActive(false);
+
+            Destroy(
+                existingDrinks[i].gameObject
+            );
+        }
+    }
+
+    private void ClearExistingFries()
+    {
+        FriesBag[] existingFries =
+            Object.FindObjectsByType<FriesBag>(
+                FindObjectsSortMode.None
+            );
+
+        for (int i = 0;
+             i < existingFries.Length;
+             i++)
+        {
+            if (existingFries[i] == null)
+            {
+                continue;
+            }
+
+            existingFries[i]
+                .gameObject
+                .SetActive(false);
+
+            Destroy(
+                existingFries[i].gameObject
+            );
+        }
+    }
+
+    private void ClearExistingLooseIngredients()
+    {
+        IngredientDispenser[] dispensers =
+            Object.FindObjectsByType<IngredientDispenser>(
+                FindObjectsSortMode.None
+            );
+
+        HashSet<GameObject> processed =
+            new HashSet<GameObject>();
+
+        for (int i = 0;
+             i < dispensers.Length;
+             i++)
+        {
+            IngredientDispenser dispenser =
+                dispensers[i];
+
+            if (dispenser == null)
+            {
+                continue;
+            }
+
+            List<GameObject> ingredients =
+                dispenser.GetSpawnedIngredients();
+
+            for (int j = 0;
+                 j < ingredients.Count;
+                 j++)
+            {
+                GameObject ingredient =
+                    ingredients[j];
+
+                if (ingredient == null ||
+                    processed.Contains(
+                        ingredient))
+                {
+                    continue;
+                }
+
+                processed.Add(
+                    ingredient
+                );
+
+                if (assembly != null &&
+                    assembly.ContainsPlacedIngredient(
+                        ingredient))
+                {
+                    continue;
+                }
+
+                dispenser.UnregisterIngredient(
+                    ingredient
+                );
+
+                ingredient.SetActive(
+                    false
+                );
+
+                Destroy(
+                    ingredient
+                );
+            }
+        }
+    }
+
+    private void RestoreDrink(
+        SaveManager.WorldItemSaveData itemData,
+        DrinkDispenser dispenser)
+    {
+        if (itemData == null)
+        {
+            return;
+        }
+
+        if (dispenser == null ||
+            dispenser.drinkCupPrefab == null)
+        {
+            Debug.LogWarning(
+                "No se pudo restaurar un refresco porque no se encontró su prefab."
+            );
+
+            return;
+        }
+
+        Vector3 position =
+            dispenser.transform.position;
+
+        Quaternion rotation =
+            dispenser.transform.rotation;
+
+        if (itemData.position != null)
+        {
+            position =
+                itemData.position.ToVector3();
+        }
+
+        if (itemData.rotation != null)
+        {
+            rotation =
+                itemData.rotation.ToQuaternion();
+        }
+
+        GameObject newDrink =
+            Instantiate(
+                dispenser.drinkCupPrefab,
+                position,
+                rotation
+            );
+
+        if (!string.IsNullOrEmpty(
+            itemData.objectName))
+        {
+            newDrink.name =
+                itemData.objectName;
+        }
+
+        DrinkCup drinkCup =
+            newDrink.GetComponent<DrinkCup>();
+
+        if (drinkCup == null)
+        {
+            drinkCup =
+                newDrink.GetComponentInChildren
+                    <DrinkCup>();
+        }
+
+        if (drinkCup == null)
+        {
+            Debug.LogWarning(
+                "El prefab del refresco no tiene DrinkCup."
+            );
+
+            Destroy(
+                newDrink
+            );
+
+            return;
+        }
+
+        drinkCup.RestoreFromSaveData(
+            itemData
+        );
+    }
+
+    private void RestoreFries(
+        SaveManager.WorldItemSaveData itemData,
+        FriesDispenser dispenser)
+    {
+        if (itemData == null)
+        {
+            return;
+        }
+
+        if (dispenser == null ||
+            dispenser.friesBagPrefab == null)
+        {
+            Debug.LogWarning(
+                "No se pudieron restaurar las papas porque no se encontró su prefab."
+            );
+
+            return;
+        }
+
+        Vector3 position =
+            dispenser.transform.position;
+
+        Quaternion rotation =
+            dispenser.transform.rotation;
+
+        if (itemData.position != null)
+        {
+            position =
+                itemData.position.ToVector3();
+        }
+
+        if (itemData.rotation != null)
+        {
+            rotation =
+                itemData.rotation.ToQuaternion();
+        }
+
+        GameObject newFries =
+            Instantiate(
+                dispenser.friesBagPrefab,
+                position,
+                rotation
+            );
+
+        if (!string.IsNullOrEmpty(
+            itemData.objectName))
+        {
+            newFries.name =
+                itemData.objectName;
+        }
+
+        FriesBag friesBag =
+            newFries.GetComponent<FriesBag>();
+
+        if (friesBag == null)
+        {
+            friesBag =
+                newFries.GetComponentInChildren
+                    <FriesBag>();
+        }
+
+        if (friesBag == null)
+        {
+            Debug.LogWarning(
+                "El prefab de papas no tiene FriesBag."
+            );
+
+            Destroy(
+                newFries
+            );
+
+            return;
+        }
+
+        friesBag.RestoreFromSaveData(
+            itemData
+        );
+    }
+
+    private void RestoreIngredient(
+        SaveManager.WorldItemSaveData itemData)
+    {
+        if (itemData == null)
+        {
+            return;
+        }
+
+        IngredientDispenser dispenser =
+            FindIngredientDispenser(
+                itemData
+            );
+
+        if (dispenser == null ||
+            dispenser.IngredientPrefab == null)
+        {
+            Debug.LogWarning(
+                "No se pudo restaurar el ingrediente: " +
+                itemData.objectName
+            );
+
+            return;
+        }
+
+        Vector3 position =
+            dispenser.transform.position;
+
+        Quaternion rotation =
+            dispenser.transform.rotation;
+
+        if (itemData.position != null)
+        {
+            position =
+                itemData.position.ToVector3();
+        }
+
+        if (itemData.rotation != null)
+        {
+            rotation =
+                itemData.rotation.ToQuaternion();
+        }
+
+        GameObject restoredIngredient =
+            dispenser.SpawnRestoredIngredient(
+                position,
+                rotation
+            );
+
+        if (restoredIngredient == null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(
+            itemData.objectName))
+        {
+            restoredIngredient.name =
+                GetCleanObjectName(
+                    itemData.objectName
+                );
+        }
+
+        if (itemData.scale != null)
+        {
+            restoredIngredient
+                .transform
+                .localScale =
+                    itemData.scale.ToVector3();
+        }
+
+        Rigidbody rb =
+            restoredIngredient.GetComponent
+                <Rigidbody>();
+
+        if (rb != null)
+        {
+            rb.linearVelocity =
+                Vector3.zero;
+
+            rb.angularVelocity =
+                Vector3.zero;
+        }
+
+        if (itemData.hasMeatCooking)
+        {
+            MeatCooking meatCooking =
+                restoredIngredient.GetComponent
+                    <MeatCooking>();
+
+            if (meatCooking == null)
+            {
+                meatCooking =
+                    restoredIngredient
+                        .GetComponentInChildren
+                        <MeatCooking>();
+            }
+
+            if (meatCooking != null)
+            {
+                SaveManager.MeatSaveData meatData =
+                    new SaveManager.MeatSaveData();
+
+                meatData.hasMeatCooking =
+                    true;
+
+                meatData.cookingState =
+                    itemData.cookingState;
+
+                meatData.cookingProgress =
+                    itemData.cookingProgress;
+
+                meatData.onGrill =
+                    itemData.onGrill;
+
+                meatCooking.RestoreFromSaveData(
+                    meatData
+                );
+            }
+        }
+
+        restoredIngredient.SetActive(
+            itemData.active
+        );
+    }
+
+    private IngredientDispenser
+        FindIngredientDispenser(
+            SaveManager.WorldItemSaveData itemData)
+    {
+        IngredientDispenser[] dispensers =
+            Object.FindObjectsByType<IngredientDispenser>(
+                FindObjectsSortMode.None
+            );
+
+        for (int i = 0;
+             i < dispensers.Length;
+             i++)
+        {
+            IngredientDispenser dispenser =
+                dispensers[i];
+
+            if (dispenser == null ||
+                dispenser.IngredientPrefab == null)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(
+                    itemData.prefabName) &&
+                dispenser.MatchesIngredient(
+                    itemData.prefabName))
+            {
+                return dispenser;
+            }
+
+            if (!string.IsNullOrEmpty(
+                    itemData.objectName) &&
+                dispenser.MatchesIngredient(
+                    itemData.objectName))
+            {
+                return dispenser;
+            }
+        }
+
+        return null;
+    }
+
+    private string GetCleanObjectName(
+        string objectName)
+    {
+        if (string.IsNullOrEmpty(
+            objectName))
+        {
+            return "";
+        }
+
+        return objectName
+            .Replace(
+                "(Clone)",
+                ""
+            )
+            .Trim();
+    }
 
     public void DeliverOrder()
     {
@@ -89,6 +1163,7 @@ public class DeliveryManager : MonoBehaviour
             Debug.LogWarning(
                 "No hay BurgerAssembly asignado en DeliveryManager."
             );
+
             return;
         }
 
@@ -97,6 +1172,7 @@ public class DeliveryManager : MonoBehaviour
             Debug.LogWarning(
                 "No hay DeliveryZone asignado en DeliveryManager."
             );
+
             return;
         }
 
@@ -105,34 +1181,29 @@ public class DeliveryManager : MonoBehaviour
             Debug.LogWarning(
                 "No hay una receta activa."
             );
+
             return;
         }
-
 
         bool burgerCorrect =
             deliveryZone.HasBurger &&
             assembly.IsRecipeCorrect();
 
-
         bool meatCorrect =
             deliveryZone.HasBurger &&
             assembly.IsMeatCookingCorrect();
 
-
         bool friesCorrect =
             ValidateFries();
 
-
         bool drinkCorrect =
             ValidateDrink();
-
 
         bool orderCorrect =
             burgerCorrect &&
             meatCorrect &&
             friesCorrect &&
             drinkCorrect;
-
 
         if (orderCorrect)
         {
@@ -149,16 +1220,17 @@ public class DeliveryManager : MonoBehaviour
         }
     }
 
-
-    // =========================================================
-    // VALIDAR PAPAS
-    // =========================================================
-
     private bool ValidateFries()
     {
+        if (assembly == null ||
+            assembly.recipe == null ||
+            deliveryZone == null)
+        {
+            return false;
+        }
+
         bool friesRequired =
             assembly.recipe.includesFries;
-
 
         if (friesRequired)
         {
@@ -172,36 +1244,32 @@ public class DeliveryManager : MonoBehaviour
                 return false;
             }
 
-
             FriesBag friesBag =
-                deliveryZone.CurrentFries.GetComponent<FriesBag>();
-
+                deliveryZone.CurrentFries
+                    .GetComponent<FriesBag>();
 
             if (friesBag == null)
             {
                 return false;
             }
 
-
             return friesBag.isFilled;
         }
 
-
-        // Si el pedido no incluye papas,
-        // añadir papas cuenta como error.
         return !deliveryZone.HasFries;
     }
 
-
-    // =========================================================
-    // VALIDAR REFRESCO
-    // =========================================================
-
     private bool ValidateDrink()
     {
+        if (assembly == null ||
+            assembly.recipe == null ||
+            deliveryZone == null)
+        {
+            return false;
+        }
+
         bool drinkRequired =
             assembly.recipe.includesDrink;
-
 
         if (drinkRequired)
         {
@@ -215,57 +1283,47 @@ public class DeliveryManager : MonoBehaviour
                 return false;
             }
 
-
             DrinkCup drinkCup =
-                deliveryZone.CurrentDrink.GetComponent<DrinkCup>();
-
+                deliveryZone.CurrentDrink
+                    .GetComponent<DrinkCup>();
 
             if (drinkCup == null)
             {
                 return false;
             }
 
-
             return drinkCup.isFilled;
         }
 
-
-        // Si el pedido no incluye refresco,
-        // añadir refresco cuenta como error.
         return !deliveryZone.HasDrink;
     }
-
-
-    // =========================================================
-    // PEDIDO CORRECTO
-    // =========================================================
 
     private void DeliverCorrectOrder()
     {
         int earnedPoints = 0;
 
-
-        if (assembly.recipe != null)
+        if (assembly != null &&
+            assembly.recipe != null)
         {
             earnedPoints =
-                assembly.recipe.points;
+                Mathf.Max(
+                    0,
+                    assembly.recipe.points
+                );
         }
-
 
         score += earnedPoints;
 
         ordersCompleted++;
         correctOrders++;
 
-
         if (score > highestScore)
         {
-            highestScore = score;
+            highestScore =
+                score;
         }
 
-
         UpdateScoreText();
-
 
         Debug.Log(
             "✅ Pedido entregado correctamente."
@@ -276,13 +1334,15 @@ public class DeliveryManager : MonoBehaviour
         );
 
         Debug.Log(
-            "⭐ +" + earnedPoints + " puntos"
+            "⭐ +" +
+            earnedPoints +
+            " puntos"
         );
 
         Debug.Log(
-            "🏆 Puntuación total: " + score
+            "🏆 Puntuación total: " +
+            score
         );
-
 
         BeginOrderFinish(
             "PEDIDO CORRECTO\n\n+" +
@@ -292,11 +1352,6 @@ public class DeliveryManager : MonoBehaviour
             0
         );
     }
-
-
-    // =========================================================
-    // PEDIDO INCORRECTO
-    // =========================================================
 
     private void DeliverIncorrectOrder(
         bool burgerCorrect,
@@ -308,18 +1363,13 @@ public class DeliveryManager : MonoBehaviour
             "❌ Pedido entregado incorrectamente."
         );
 
-
         string feedbackMessage =
             "PEDIDO INCORRECTO\n\n";
 
-
-        // -----------------------------------------------------
-        // HAMBURGUESA
-        // -----------------------------------------------------
-
         if (!burgerCorrect)
         {
-            if (!deliveryZone.HasBurger)
+            if (deliveryZone == null ||
+                !deliveryZone.HasBurger)
             {
                 Debug.Log(
                     "Falta la hamburguesa."
@@ -339,172 +1389,105 @@ public class DeliveryManager : MonoBehaviour
             }
         }
 
-
-        // -----------------------------------------------------
-        // CARNE
-        // -----------------------------------------------------
-
         if (!meatCorrect &&
+            deliveryZone != null &&
             deliveryZone.HasBurger &&
+            assembly != null &&
             assembly.HasMeat)
         {
             switch (assembly.MeatState)
             {
                 case MeatCooking.CookingState.Raw:
 
-                    Debug.Log(
-                        "La carne está cruda."
-                    );
-
                     feedbackMessage +=
                         "- La carne está cruda.\n";
 
                     break;
 
-
                 case MeatCooking.CookingState.Cooking:
-
-                    Debug.Log(
-                        "La carne todavía está poco cocinada."
-                    );
 
                     feedbackMessage +=
                         "- La carne está poco cocinada.\n";
 
                     break;
 
-
                 case MeatCooking.CookingState.Burned:
-
-                    Debug.Log(
-                        "La carne está quemada."
-                    );
 
                     feedbackMessage +=
                         "- La carne está quemada.\n";
 
                     break;
 
-
                 case MeatCooking.CookingState.Ready:
-
-                    Debug.Log(
-                        "La carne está correctamente cocinada."
-                    );
 
                     break;
             }
         }
 
-
-        // -----------------------------------------------------
-        // PAPAS
-        // -----------------------------------------------------
-
-        if (!friesCorrect)
+        if (!friesCorrect &&
+            assembly != null &&
+            assembly.recipe != null)
         {
             if (assembly.recipe.includesFries)
             {
-                if (!deliveryZone.HasFries)
+                if (deliveryZone == null ||
+                    !deliveryZone.HasFries)
                 {
-                    Debug.Log(
-                        "Faltan las papas."
-                    );
-
                     feedbackMessage +=
                         "- Faltan las papas.\n";
                 }
                 else
                 {
-                    Debug.Log(
-                        "Las papas no están preparadas correctamente."
-                    );
-
                     feedbackMessage +=
                         "- Las papas no están preparadas correctamente.\n";
                 }
             }
             else
             {
-                Debug.Log(
-                    "El pedido no incluye papas."
-                );
-
                 feedbackMessage +=
                     "- El pedido no incluye papas.\n";
             }
         }
 
-
-        // -----------------------------------------------------
-        // REFRESCO
-        // -----------------------------------------------------
-
-        if (!drinkCorrect)
+        if (!drinkCorrect &&
+            assembly != null &&
+            assembly.recipe != null)
         {
             if (assembly.recipe.includesDrink)
             {
-                if (!deliveryZone.HasDrink)
+                if (deliveryZone == null ||
+                    !deliveryZone.HasDrink)
                 {
-                    Debug.Log(
-                        "Falta el refresco."
-                    );
-
                     feedbackMessage +=
                         "- Falta el refresco.\n";
                 }
                 else
                 {
-                    Debug.Log(
-                        "El refresco no está preparado correctamente."
-                    );
-
                     feedbackMessage +=
                         "- El refresco no está preparado correctamente.\n";
                 }
             }
             else
             {
-                Debug.Log(
-                    "El pedido no incluye refresco."
-                );
-
                 feedbackMessage +=
                     "- El pedido no incluye refresco.\n";
             }
         }
 
-
         ordersCompleted++;
         incorrectOrders++;
 
-
-        // Obtenemos la penalización correspondiente
-        // a la dificultad actual.
         int penalty =
             GetPenaltyForCurrentDifficulty();
 
-
-        ApplyPenalty(penalty);
-
+        ApplyPenalty(
+            penalty
+        );
 
         feedbackMessage +=
             "\n-" +
             penalty +
             " PUNTOS";
-
-
-        Debug.Log(
-            "📊 Dificultad actual: " +
-            GetCurrentDifficulty()
-        );
-
-        Debug.Log(
-            "⚠️ Penalización aplicada: -" +
-            penalty +
-            " puntos"
-        );
-
 
         BeginOrderFinish(
             feedbackMessage,
@@ -513,30 +1496,18 @@ public class DeliveryManager : MonoBehaviour
         );
     }
 
-
-    // =========================================================
-    // PENALIZACIÓN SEGÚN DIFICULTAD
-    // =========================================================
-
     private int GetPenaltyForCurrentDifficulty()
     {
         if (orderManager == null)
         {
-            Debug.LogWarning(
-                "No hay OrderManager asignado. " +
-                "Se utilizará la penalización de respaldo."
-            );
-
             return Mathf.Max(
                 0,
                 incorrectOrderPenalty
             );
         }
 
-
         int difficulty =
             orderManager.CurrentDifficulty;
-
 
         switch (difficulty)
         {
@@ -547,14 +1518,12 @@ public class DeliveryManager : MonoBehaviour
                     penaltyDifficulty1
                 );
 
-
             case 2:
 
                 return Mathf.Max(
                     0,
                     penaltyDifficulty2
                 );
-
 
             case 3:
 
@@ -563,18 +1532,14 @@ public class DeliveryManager : MonoBehaviour
                     penaltyDifficulty3
                 );
 
-
             default:
 
-                // Si más adelante agregas dificultad 4 o superior,
-                // se utilizará de momento la penalización máxima.
                 return Mathf.Max(
                     0,
                     penaltyDifficulty3
                 );
         }
     }
-
 
     private int GetCurrentDifficulty()
     {
@@ -583,27 +1548,24 @@ public class DeliveryManager : MonoBehaviour
             return 1;
         }
 
-
         return orderManager.CurrentDifficulty;
     }
-
-
-    // =========================================================
-    // FINALIZAR PEDIDO
-    // =========================================================
 
     private void BeginOrderFinish(
         string feedbackMessage,
         FinishType finishType,
         int appliedPenalty)
     {
-        processingDelivery = true;
+        if (processingDelivery)
+        {
+            return;
+        }
 
+        processingDelivery = true;
 
         ShowFeedback(
             feedbackMessage
         );
-
 
         if (statusText != null)
         {
@@ -613,21 +1575,21 @@ public class DeliveryManager : MonoBehaviour
 
                     int earnedPoints = 0;
 
-
                     if (assembly != null &&
                         assembly.recipe != null)
                     {
                         earnedPoints =
-                            assembly.recipe.points;
+                            Mathf.Max(
+                                0,
+                                assembly.recipe.points
+                            );
                     }
-
 
                     statusText.text =
                         "CORRECTO +" +
                         earnedPoints;
 
                     break;
-
 
                 case FinishType.Incorrect:
 
@@ -636,7 +1598,6 @@ public class DeliveryManager : MonoBehaviour
                         appliedPenalty;
 
                     break;
-
 
                 case FinishType.Timeout:
 
@@ -648,7 +1609,6 @@ public class DeliveryManager : MonoBehaviour
             }
         }
 
-
         if (orderManager != null)
         {
             orderManagerWasEnabled =
@@ -658,7 +1618,6 @@ public class DeliveryManager : MonoBehaviour
                 false;
         }
 
-
         if (finishCoroutine != null)
         {
             StopCoroutine(
@@ -666,41 +1625,24 @@ public class DeliveryManager : MonoBehaviour
             );
         }
 
-
         finishCoroutine =
             StartCoroutine(
                 FinishOrderAfterDelay()
             );
     }
 
-
-    // =========================================================
-    // TIEMPO AGOTADO
-    // =========================================================
-
-    public void HandleTimeout(int penalty)
+    public void HandleTimeout(
+        int penalty)
     {
         if (processingDelivery)
         {
             return;
         }
 
-
-        Debug.Log(
-            "⏰ Pedido perdido por falta de tiempo."
-        );
-
-
         ordersCompleted++;
         incorrectOrders++;
 
-
-        // Mantenemos el parámetro "penalty"
-        // para que tu OrderManager actual siga funcionando.
-        //
-        // La penalización real ahora depende de la dificultad.
         int difficultyPenalty;
-
 
         if (orderManager != null)
         {
@@ -709,29 +1651,16 @@ public class DeliveryManager : MonoBehaviour
         }
         else
         {
-            // Si por algún motivo falta OrderManager,
-            // se usa el valor enviado originalmente.
             difficultyPenalty =
-                Mathf.Max(0, penalty);
+                Mathf.Max(
+                    0,
+                    penalty
+                );
         }
-
 
         ApplyPenalty(
             difficultyPenalty
         );
-
-
-        Debug.Log(
-            "📊 Dificultad actual: " +
-            GetCurrentDifficulty()
-        );
-
-        Debug.Log(
-            "⏰ Penalización por tiempo: -" +
-            difficultyPenalty +
-            " puntos"
-        );
-
 
         BeginOrderFinish(
             "TIEMPO AGOTADO\n\n-" +
@@ -742,26 +1671,19 @@ public class DeliveryManager : MonoBehaviour
         );
     }
 
-
-    // =========================================================
-    // ESPERA ENTRE PEDIDOS
-    // =========================================================
-
     private IEnumerator FinishOrderAfterDelay()
     {
-        yield return new WaitForSecondsRealtime(
-            feedbackDuration
+        yield return new WaitForSeconds(
+            Mathf.Max(
+                0f,
+                feedbackDuration
+            )
         );
-
 
         HideFeedback();
 
-
         RemoveDeliveredExtras();
 
-
-        // Si se queda sin puntos,
-        // termina la partida.
         if (score <= 0)
         {
             GameOver();
@@ -769,30 +1691,22 @@ public class DeliveryManager : MonoBehaviour
             yield break;
         }
 
-
-        // El cliente actual comienza a marcharse.
         if (customerSpawner != null)
         {
             customerSpawner
                 .StartCurrentCustomerLeaving();
         }
 
-
-        // Limpiar estación de armado.
         if (assembly != null)
         {
             assembly.ResetAssembly();
         }
 
-
-        // Limpiar zona de entrega.
         if (deliveryZone != null)
         {
             deliveryZone.ClearDeliveryZone();
         }
 
-
-        // Preparar siguiente pedido.
         if (orderManager != null)
         {
             orderManager.enabled =
@@ -800,27 +1714,35 @@ public class DeliveryManager : MonoBehaviour
 
             orderManager.GenerateNewOrder();
         }
-        else
-        {
-            Debug.LogWarning(
-                "No hay OrderManager asignado en DeliveryManager."
-            );
-        }
-
 
         processingDelivery = false;
         finishCoroutine = null;
     }
 
-
-    // =========================================================
-    // GAME OVER
-    // =========================================================
-
     private void GameOver()
     {
         processingDelivery = true;
+        finishCoroutine = null;
 
+        if (!gameResultSaved)
+        {
+            SaveManager.SaveGameResult(
+                highestScore,
+                correctOrders,
+                incorrectOrders
+            );
+
+            gameResultSaved = true;
+
+            RankingManager rankingManager =
+                Object.FindAnyObjectByType
+                    <RankingManager>();
+
+            if (rankingManager != null)
+            {
+                rankingManager.RefreshRanking();
+            }
+        }
 
         if (orderManager != null)
         {
@@ -828,36 +1750,27 @@ public class DeliveryManager : MonoBehaviour
                 false;
         }
 
-
         if (customerSpawner != null)
         {
             customerSpawner.enabled =
                 false;
         }
 
-
         if (gameOverText != null)
         {
             gameOverText.text =
                 "FIN DEL TURNO\n\n" +
-
                 "Tu puntuacion llego a 0.\n\n" +
-
                 "Puntuacion maxima: " +
                 highestScore +
-
                 "\n\nPedidos atendidos: " +
                 ordersCompleted +
-
                 "\nCorrectos: " +
                 correctOrders +
-
                 "\nIncorrectos: " +
                 incorrectOrders +
-
                 "\n\nGAME OVER";
         }
-
 
         if (gameOverPanel != null)
         {
@@ -866,16 +1779,10 @@ public class DeliveryManager : MonoBehaviour
             );
         }
 
-
         Debug.Log(
             "💀 GAME OVER"
         );
     }
-
-
-    // =========================================================
-    // ELIMINAR EXTRAS ENTREGADOS
-    // =========================================================
 
     private void RemoveDeliveredExtras()
     {
@@ -884,50 +1791,43 @@ public class DeliveryManager : MonoBehaviour
             return;
         }
 
-
         GameObject fries =
             deliveryZone.CurrentFries;
 
         GameObject drink =
             deliveryZone.CurrentDrink;
 
-
         if (fries != null)
         {
-            Destroy(fries);
+            Destroy(
+                fries
+            );
         }
-
 
         if (drink != null)
         {
-            Destroy(drink);
+            Destroy(
+                drink
+            );
         }
     }
 
-
-    // =========================================================
-    // APLICAR PENALIZACIÓN
-    // =========================================================
-
-    public void ApplyPenalty(int amount)
+    public void ApplyPenalty(
+        int amount)
     {
         if (amount <= 0)
         {
             return;
         }
 
-
         score -= amount;
-
 
         if (score < 0)
         {
             score = 0;
         }
 
-
         UpdateScoreText();
-
 
         Debug.Log(
             "⚠️ -" +
@@ -941,11 +1841,6 @@ public class DeliveryManager : MonoBehaviour
         );
     }
 
-
-    // =========================================================
-    // ACTUALIZAR PUNTUACIÓN
-    // =========================================================
-
     private void UpdateScoreText()
     {
         if (scoreText != null)
@@ -956,11 +1851,6 @@ public class DeliveryManager : MonoBehaviour
         }
     }
 
-
-    // =========================================================
-    // FEEDBACK
-    // =========================================================
-
     private void ShowFeedback(
         string message)
     {
@@ -968,7 +1858,6 @@ public class DeliveryManager : MonoBehaviour
         {
             feedbackText.text =
                 message;
-
 
             if (message.StartsWith(
                 "PEDIDO CORRECTO"))
@@ -983,7 +1872,6 @@ public class DeliveryManager : MonoBehaviour
             }
         }
 
-
         if (feedbackPanel != null)
         {
             feedbackPanel.SetActive(
@@ -991,7 +1879,6 @@ public class DeliveryManager : MonoBehaviour
             );
         }
     }
-
 
     private void HideFeedback()
     {
