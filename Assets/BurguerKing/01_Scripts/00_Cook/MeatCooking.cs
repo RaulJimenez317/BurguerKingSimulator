@@ -47,6 +47,12 @@ public class MeatCooking : MonoBehaviour
         timer;
 
 
+    [Header("MODELOS")]
+    public GameObject rawModel;
+    public GameObject cookedModel;
+    public GameObject burnedModel;
+
+
     private void Awake()
     {
         FindRenderer();
@@ -351,43 +357,42 @@ public class MeatCooking : MonoBehaviour
 
     private void UpdateMeatColor()
     {
-        FindRenderer();
+        if (rawModel != null)
+            rawModel.SetActive(false);
 
-        if (meatRenderer == null)
-        {
-            return;
-        }
+        if (cookedModel != null)
+            cookedModel.SetActive(false);
+
+        if (burnedModel != null)
+            burnedModel.SetActive(false);
 
         switch (state)
         {
             case CookingState.Raw:
 
-                meatRenderer.material.color =
-                    Color.red;
+                if (rawModel != null)
+                    rawModel.SetActive(true);
 
                 break;
-
 
             case CookingState.Cooking:
 
-                meatRenderer.material.color =
-                    Color.gray;
+                if (rawModel != null)
+                    rawModel.SetActive(true);
 
                 break;
-
 
             case CookingState.Ready:
 
-                meatRenderer.material.color =
-                    Color.yellow;
+                if (cookedModel != null)
+                    cookedModel.SetActive(true);
 
                 break;
 
-
             case CookingState.Burned:
 
-                meatRenderer.material.color =
-                    Color.black;
+                if (burnedModel != null)
+                    burnedModel.SetActive(true);
 
                 break;
         }
