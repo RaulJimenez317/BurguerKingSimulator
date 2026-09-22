@@ -2,20 +2,14 @@ using UnityEngine;
 
 public class DrinkCup : MonoBehaviour
 {
+    [Header("ESTADO")]
     public bool isFilled = false;
 
-    private Renderer cupRenderer;
-    private Color originalColor = Color.white;
-    private bool hasOriginalColor = false;
+    [Header("MODELOS")]
+    public GameObject emptyModel;
+    public GameObject fullModel;
 
     public bool IsFilled => isFilled;
-
-
-    private void Awake()
-    {
-        FindRenderer();
-        CaptureOriginalColor();
-    }
 
 
     private void Start()
@@ -126,8 +120,6 @@ public class DrinkCup : MonoBehaviour
                 data.scale.ToVector3();
         }
 
-        FindRenderer();
-
         isFilled =
             data.isFilled;
 
@@ -157,58 +149,20 @@ public class DrinkCup : MonoBehaviour
     }
 
 
-    private void FindRenderer()
-    {
-        if (cupRenderer != null)
-        {
-            return;
-        }
-
-        cupRenderer =
-            GetComponent<Renderer>();
-
-        if (cupRenderer == null)
-        {
-            cupRenderer =
-                GetComponentInChildren
-                <Renderer>();
-        }
-    }
-
-
-    private void CaptureOriginalColor()
-    {
-        if (cupRenderer == null)
-        {
-            return;
-        }
-
-        originalColor =
-            cupRenderer.material.color;
-
-        hasOriginalColor =
-            true;
-    }
-
-
     private void UpdateCupVisual()
     {
-        FindRenderer();
-
-        if (cupRenderer == null)
+        if (emptyModel != null)
         {
-            return;
+            emptyModel.SetActive(
+                !isFilled
+            );
         }
 
-        if (isFilled)
+        if (fullModel != null)
         {
-            cupRenderer.material.color =
-                Color.blue;
-        }
-        else if (hasOriginalColor)
-        {
-            cupRenderer.material.color =
-                originalColor;
+            fullModel.SetActive(
+                isFilled
+            );
         }
     }
 

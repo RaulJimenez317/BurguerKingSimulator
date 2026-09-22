@@ -2,20 +2,14 @@ using UnityEngine;
 
 public class FriesBag : MonoBehaviour
 {
+    [Header("ESTADO")]
     public bool isFilled = false;
 
-    private Renderer bagRenderer;
-    private Color originalColor = Color.white;
-    private bool hasOriginalColor = false;
+    [Header("MODELOS")]
+    public GameObject emptyModel;
+    public GameObject fullModel;
 
     public bool IsFilled => isFilled;
-
-
-    private void Awake()
-    {
-        FindRenderer();
-        CaptureOriginalColor();
-    }
 
 
     private void Start()
@@ -126,8 +120,6 @@ public class FriesBag : MonoBehaviour
                 data.scale.ToVector3();
         }
 
-        FindRenderer();
-
         isFilled =
             data.isFilled;
 
@@ -157,58 +149,20 @@ public class FriesBag : MonoBehaviour
     }
 
 
-    private void FindRenderer()
-    {
-        if (bagRenderer != null)
-        {
-            return;
-        }
-
-        bagRenderer =
-            GetComponent<Renderer>();
-
-        if (bagRenderer == null)
-        {
-            bagRenderer =
-                GetComponentInChildren
-                <Renderer>();
-        }
-    }
-
-
-    private void CaptureOriginalColor()
-    {
-        if (bagRenderer == null)
-        {
-            return;
-        }
-
-        originalColor =
-            bagRenderer.material.color;
-
-        hasOriginalColor =
-            true;
-    }
-
-
     private void UpdateBagVisual()
     {
-        FindRenderer();
-
-        if (bagRenderer == null)
+        if (emptyModel != null)
         {
-            return;
+            emptyModel.SetActive(
+                !isFilled
+            );
         }
 
-        if (isFilled)
+        if (fullModel != null)
         {
-            bagRenderer.material.color =
-                Color.yellow;
-        }
-        else if (hasOriginalColor)
-        {
-            bagRenderer.material.color =
-                originalColor;
+            fullModel.SetActive(
+                isFilled
+            );
         }
     }
 
