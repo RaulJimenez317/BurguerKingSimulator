@@ -13,6 +13,9 @@ public class CustomerController : MonoBehaviour
     [Header("GIRO")]
     public float rotationSpeed = 180f;
 
+    [Header("ANIMACION")]
+    public Animator customerAnimator;
+
     [Header("UI DEL PEDIDO")]
     public GameObject orderPanel;
 
@@ -35,6 +38,18 @@ public class CustomerController : MonoBehaviour
     public bool FinishedTurning => finishedTurning;
 
 
+    private void Awake()
+    {
+        // Si no lo asignas manualmente,
+        // busca automáticamente el Animator del personaje.
+        if (customerAnimator == null)
+        {
+            customerAnimator =
+                GetComponentInChildren<Animator>(true);
+        }
+    }
+
+
     private void Start()
     {
         if (!restoredFromSave)
@@ -44,6 +59,10 @@ public class CustomerController : MonoBehaviour
                 orderPanel.SetActive(false);
             }
         }
+
+        // Ajusta la animación dependiendo
+        // del estado actual del cliente.
+        UpdateAnimationState();
     }
 
 
@@ -92,6 +111,10 @@ public class CustomerController : MonoBehaviour
 
             arrived =
                 true;
+
+            // Llegó al mostrador:
+            // deja de reproducir la caminata.
+            SetWalking(false);
 
             if (orderPanel != null)
             {
@@ -175,6 +198,9 @@ public class CustomerController : MonoBehaviour
         finishedTurning =
             false;
 
+        // Primero gira quieto.
+        SetWalking(false);
+
         if (orderPanel != null)
         {
             orderPanel.SetActive(false);
@@ -213,6 +239,7 @@ public class CustomerController : MonoBehaviour
                 0f
             );
 
+        // Primero gira hacia la salida.
         if (!finishedTurning)
         {
             transform.rotation =
@@ -235,11 +262,17 @@ public class CustomerController : MonoBehaviour
 
                 finishedTurning =
                     true;
+
+                // Terminó de girar:
+                // vuelve a reproducir Walk.
+                SetWalking(true);
             }
 
             return;
         }
 
+        // Ya terminó de girar,
+        // ahora camina hacia la salida.
         transform.position =
             Vector3.MoveTowards(
                 transform.position,
@@ -259,6 +292,41 @@ public class CustomerController : MonoBehaviour
                 exitPoint.position;
 
             FinishLeaving();
+        }
+    }
+
+
+    private void SetWalking(bool walking)
+    {
+        if (customerAnimator == null)
+        {
+            return;
+        }
+
+        // Como solamente tienes la animación Walk,
+        // pausamos o reanudamos el Animator.
+        customerAnimator.speed =
+            walking ? 1f : 0f;
+    }
+
+
+    private void UpdateAnimationState()
+    {
+        if (leaving)
+        {
+            // Si está saliendo:
+            // gira quieto y camina después de girar.
+            SetWalking(
+                finishedTurning
+            );
+        }
+        else
+        {
+            // Si todavía no llegó:
+            // debe estar caminando.
+            SetWalking(
+                !arrived
+            );
         }
     }
 
@@ -357,6 +425,10 @@ public class CustomerController : MonoBehaviour
                 data.orderPanelActive
             );
         }
+
+        // Recupera también visualmente el estado
+        // correcto de la caminata al cargar partida.
+        UpdateAnimationState();
 
         return true;
     }
