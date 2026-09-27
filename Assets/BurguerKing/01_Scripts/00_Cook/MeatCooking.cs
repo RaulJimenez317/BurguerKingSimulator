@@ -10,11 +10,42 @@ public class MeatCooking : MonoBehaviour
         Burned
     }
 
+
     [Header("TIEMPOS")]
     public float cookingTime = 5f;
     public float burningTime = 8f;
 
+
+    [Header("MODELOS")]
+    public GameObject rawModel;
+    public GameObject cookedModel;
+    public GameObject burnedModel;
+
+
+    [Header("SONIDOS")]
+    [SerializeField]
+    private AudioClip putOnGrillSound;
+
+    [SerializeField]
+    private AudioClip cookingSound;
+
+    [SerializeField]
+    private AudioClip readySound;
+
+    [SerializeField]
+    private AudioClip burnedSound;
+
+
+    [Header("AUDIO SOURCES")]
+    [SerializeField]
+    private AudioSource effectsAudioSource;
+
+    [SerializeField]
+    private AudioSource cookingAudioSource;
+
+
     private float timer = 0f;
+
     private bool onGrill = false;
 
     private Renderer meatRenderer;
@@ -47,15 +78,11 @@ public class MeatCooking : MonoBehaviour
         timer;
 
 
-    [Header("MODELOS")]
-    public GameObject rawModel;
-    public GameObject cookedModel;
-    public GameObject burnedModel;
-
-
     private void Awake()
     {
         FindRenderer();
+
+        SetupAudioSources();
     }
 
 
@@ -76,6 +103,8 @@ public class MeatCooking : MonoBehaviour
         ValidateCookingValues();
 
         UpdateMeatColor();
+
+        UpdateCookingAudio();
     }
 
 
@@ -89,24 +118,34 @@ public class MeatCooking : MonoBehaviour
         if (state ==
             CookingState.Burned)
         {
+            StopCookingSound();
+
             return;
         }
 
         timer +=
             Time.deltaTime;
 
+
         CookingState previousState =
             state;
 
+
         UpdateCookingState();
+
 
         if (state != previousState)
         {
             UpdateMeatColor();
 
+
             if (state ==
                 CookingState.Ready)
             {
+                PlayEffect(
+                    readySound
+                );
+
                 Debug.Log(
                     "✅ La carne está lista."
                 );
@@ -114,6 +153,12 @@ public class MeatCooking : MonoBehaviour
             else if (state ==
                      CookingState.Burned)
             {
+                StopCookingSound();
+
+                PlayEffect(
+                    burnedSound
+                );
+
                 Debug.Log(
                     "🔥 La carne se quemó."
                 );
@@ -132,8 +177,16 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         onGrill =
             true;
+
+
+        // Sonido de colocar la carne.
+        PlayEffect(
+            putOnGrillSound
+        );
+
 
         if (state ==
             CookingState.Raw)
@@ -143,6 +196,15 @@ public class MeatCooking : MonoBehaviour
 
             UpdateMeatColor();
         }
+
+
+        // Empieza el chisporroteo.
+        if (state !=
+            CookingState.Burned)
+        {
+            StartCookingSound();
+        }
+
 
         Debug.Log(
             "🥩 La carne está cocinándose."
@@ -160,8 +222,15 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         onGrill =
             false;
+
+
+        // Deja de chisporrotear
+        // cuando se saca de la parrilla.
+        StopCookingSound();
+
 
         Debug.Log(
             "Estado de la carne: " +
@@ -173,6 +242,7 @@ public class MeatCooking : MonoBehaviour
     private void UpdateCookingState()
     {
         ValidateCookingValues();
+
 
         if (timer >=
             burningTime)
@@ -189,6 +259,7 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         if (timer >=
             cookingTime)
         {
@@ -198,6 +269,7 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         if (timer > 0f ||
             onGrill)
         {
@@ -206,6 +278,7 @@ public class MeatCooking : MonoBehaviour
 
             return;
         }
+
 
         state =
             CookingState.Raw;
@@ -217,6 +290,7 @@ public class MeatCooking : MonoBehaviour
     {
         SaveManager.MeatSaveData data =
             new SaveManager.MeatSaveData();
+
 
         data.hasMeatCooking =
             true;
@@ -233,6 +307,7 @@ public class MeatCooking : MonoBehaviour
         data.onGrill =
             onGrill;
 
+
         return data;
     }
 
@@ -246,9 +321,13 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         FindRenderer();
 
+        SetupAudioSources();
+
         ValidateCookingValues();
+
 
         timer =
             Mathf.Max(
@@ -256,8 +335,10 @@ public class MeatCooking : MonoBehaviour
                 data.cookingProgress
             );
 
+
         onGrill =
             data.onGrill;
+
 
         if (System.Enum.IsDefined(
             typeof(CookingState),
@@ -272,6 +353,7 @@ public class MeatCooking : MonoBehaviour
             UpdateCookingState();
         }
 
+
         if (state ==
             CookingState.Raw)
         {
@@ -285,6 +367,7 @@ public class MeatCooking : MonoBehaviour
                 );
         }
 
+
         if (state ==
             CookingState.Ready)
         {
@@ -296,6 +379,7 @@ public class MeatCooking : MonoBehaviour
                 );
         }
 
+
         if (state ==
             CookingState.Burned)
         {
@@ -306,10 +390,18 @@ public class MeatCooking : MonoBehaviour
                 );
         }
 
+
         restoredFromSave =
             true;
 
+
         UpdateMeatColor();
+
+        // Si la partida se guardó con la
+        // carne sobre la parrilla,
+        // continúa el sonido de cocción.
+        UpdateCookingAudio();
+
 
         Debug.Log(
             "💾 Carne restaurada. Estado: " +
@@ -328,6 +420,7 @@ public class MeatCooking : MonoBehaviour
                 cookingTime
             );
 
+
         burningTime =
             Mathf.Max(
                 cookingTime,
@@ -343,8 +436,10 @@ public class MeatCooking : MonoBehaviour
             return;
         }
 
+
         meatRenderer =
             GetComponent<Renderer>();
+
 
         if (meatRenderer == null)
         {
@@ -355,44 +450,212 @@ public class MeatCooking : MonoBehaviour
     }
 
 
+    private void SetupAudioSources()
+    {
+        // AudioSource para efectos:
+        // poner carne, lista y quemada.
+        if (effectsAudioSource == null)
+        {
+            effectsAudioSource =
+                gameObject.AddComponent
+                <AudioSource>();
+        }
+
+
+        // AudioSource independiente
+        // para el sonido continuo de cocción.
+        if (cookingAudioSource == null)
+        {
+            cookingAudioSource =
+                gameObject.AddComponent
+                <AudioSource>();
+        }
+
+
+        ConfigureAudioSource(
+            effectsAudioSource
+        );
+
+        ConfigureAudioSource(
+            cookingAudioSource
+        );
+
+
+        cookingAudioSource.loop =
+            true;
+    }
+
+
+    private void ConfigureAudioSource(
+        AudioSource source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+
+        source.playOnAwake =
+            false;
+
+        // Sonido 3D para VR.
+        source.spatialBlend =
+            1f;
+    }
+
+
+    private void PlayEffect(
+        AudioClip clip)
+    {
+        if (clip == null ||
+            effectsAudioSource == null)
+        {
+            return;
+        }
+
+
+        effectsAudioSource.PlayOneShot(
+            clip
+        );
+    }
+
+
+    private void StartCookingSound()
+    {
+        if (cookingAudioSource == null ||
+            cookingSound == null)
+        {
+            return;
+        }
+
+
+        if (cookingAudioSource.isPlaying &&
+            cookingAudioSource.clip ==
+            cookingSound)
+        {
+            return;
+        }
+
+
+        cookingAudioSource.Stop();
+
+        cookingAudioSource.clip =
+            cookingSound;
+
+        cookingAudioSource.loop =
+            true;
+
+        cookingAudioSource.Play();
+    }
+
+
+    private void StopCookingSound()
+    {
+        if (cookingAudioSource == null)
+        {
+            return;
+        }
+
+
+        if (cookingAudioSource.isPlaying)
+        {
+            cookingAudioSource.Stop();
+        }
+    }
+
+
+    private void UpdateCookingAudio()
+    {
+        if (onGrill &&
+            state != CookingState.Burned)
+        {
+            StartCookingSound();
+        }
+        else
+        {
+            StopCookingSound();
+        }
+    }
+
+
+    private void OnDisable()
+    {
+        StopCookingSound();
+    }
+
+
     private void UpdateMeatColor()
     {
         if (rawModel != null)
-            rawModel.SetActive(false);
+        {
+            rawModel.SetActive(
+                false
+            );
+        }
+
 
         if (cookedModel != null)
-            cookedModel.SetActive(false);
+        {
+            cookedModel.SetActive(
+                false
+            );
+        }
+
 
         if (burnedModel != null)
-            burnedModel.SetActive(false);
+        {
+            burnedModel.SetActive(
+                false
+            );
+        }
+
 
         switch (state)
         {
             case CookingState.Raw:
 
                 if (rawModel != null)
-                    rawModel.SetActive(true);
+                {
+                    rawModel.SetActive(
+                        true
+                    );
+                }
 
                 break;
+
 
             case CookingState.Cooking:
 
                 if (rawModel != null)
-                    rawModel.SetActive(true);
+                {
+                    rawModel.SetActive(
+                        true
+                    );
+                }
 
                 break;
+
 
             case CookingState.Ready:
 
                 if (cookedModel != null)
-                    cookedModel.SetActive(true);
+                {
+                    cookedModel.SetActive(
+                        true
+                    );
+                }
 
                 break;
+
 
             case CookingState.Burned:
 
                 if (burnedModel != null)
-                    burnedModel.SetActive(true);
+                {
+                    burnedModel.SetActive(
+                        true
+                    );
+                }
 
                 break;
         }

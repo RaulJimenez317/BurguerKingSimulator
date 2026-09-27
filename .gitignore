@@ -106,4 +106,6 @@ InitTestScene*.unity*
 /UIElementsSchema/
 
 # Auto-generated cache in Assets folder
-/[Aa]ssets/[Ss]ceneDependencyCache*
+/[Aa]ssets/[Ss]ceneDependencyCache*BurguerKingSimulator.zip
+
+/BurguerKingSimulator.zip

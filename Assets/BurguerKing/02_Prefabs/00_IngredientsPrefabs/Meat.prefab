@@ -114,6 +114,12 @@ MonoBehaviour:
   rawModel: {fileID: 763383310633813693}
   cookedModel: {fileID: 4365990909310749924}
   burnedModel: {fileID: 5661075189302658323}
+  putOnGrillSound: {fileID: 8300000, guid: deb38185ea635cc48aeaeac81d51baa2, type: 3}
+  cookingSound: {fileID: 8300000, guid: 33cd0e48b4431c846b23522e8d5c801d, type: 3}
+  readySound: {fileID: 8300000, guid: 28405e4e20e996e429872afcfd144e09, type: 3}
+  burnedSound: {fileID: 8300000, guid: 88cc4ed55bd9654489c5f5272ff63967, type: 3}
+  effectsAudioSource: {fileID: 0}
+  cookingAudioSource: {fileID: 0}
 --- !u!65 &1557823275531516981
 BoxCollider:
   m_ObjectHideFlags: 0

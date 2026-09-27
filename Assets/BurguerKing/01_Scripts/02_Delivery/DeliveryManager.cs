@@ -1299,202 +1299,214 @@ public class DeliveryManager : MonoBehaviour
     }
 
     private void DeliverCorrectOrder()
+{
+    // SONIDO: PEDIDO CORRECTO
+    if (GameAudioManager.Instance != null)
     {
-        int earnedPoints = 0;
-
-        if (assembly != null &&
-            assembly.recipe != null)
-        {
-            earnedPoints =
-                Mathf.Max(
-                    0,
-                    assembly.recipe.points
-                );
-        }
-
-        score += earnedPoints;
-
-        ordersCompleted++;
-        correctOrders++;
-
-        if (score > highestScore)
-        {
-            highestScore =
-                score;
-        }
-
-        UpdateScoreText();
-
-        Debug.Log(
-            "✅ Pedido entregado correctamente."
-        );
-
-        Debug.Log(
-            "🥩 Carne correctamente cocinada."
-        );
-
-        Debug.Log(
-            "⭐ +" +
-            earnedPoints +
-            " puntos"
-        );
-
-        Debug.Log(
-            "🏆 Puntuación total: " +
-            score
-        );
-
-        BeginOrderFinish(
-            "PEDIDO CORRECTO\n\n+" +
-            earnedPoints +
-            " PUNTOS",
-            FinishType.Correct,
-            0
-        );
+        GameAudioManager.Instance.PlayPedidoCorrecto();
     }
+
+    int earnedPoints = 0;
+
+    if (assembly != null &&
+        assembly.recipe != null)
+    {
+        earnedPoints =
+            Mathf.Max(
+                0,
+                assembly.recipe.points
+            );
+    }
+
+    score += earnedPoints;
+
+    ordersCompleted++;
+    correctOrders++;
+
+    if (score > highestScore)
+    {
+        highestScore =
+            score;
+    }
+
+    UpdateScoreText();
+
+    Debug.Log(
+        "✅ Pedido entregado correctamente."
+    );
+
+    Debug.Log(
+        "🥩 Carne correctamente cocinada."
+    );
+
+    Debug.Log(
+        "⭐ +" +
+        earnedPoints +
+        " puntos"
+    );
+
+    Debug.Log(
+        "🏆 Puntuación total: " +
+        score
+    );
+
+    BeginOrderFinish(
+        "PEDIDO CORRECTO\n\n+" +
+        earnedPoints +
+        " PUNTOS",
+        FinishType.Correct,
+        0
+    );
+}
 
     private void DeliverIncorrectOrder(
-        bool burgerCorrect,
-        bool meatCorrect,
-        bool friesCorrect,
-        bool drinkCorrect)
+    bool burgerCorrect,
+    bool meatCorrect,
+    bool friesCorrect,
+    bool drinkCorrect)
+{
+    // SONIDO: PEDIDO INCORRECTO
+    if (GameAudioManager.Instance != null)
     {
-        Debug.Log(
-            "❌ Pedido entregado incorrectamente."
-        );
+        GameAudioManager.Instance.PlayPedidoFallido();
+    }
 
-        string feedbackMessage =
-            "PEDIDO INCORRECTO\n\n";
+    Debug.Log(
+        "❌ Pedido entregado incorrectamente."
+    );
 
-        if (!burgerCorrect)
+    string feedbackMessage =
+        "PEDIDO INCORRECTO\n\n";
+
+    if (!burgerCorrect)
+    {
+        if (deliveryZone == null ||
+            !deliveryZone.HasBurger)
+        {
+            Debug.Log(
+                "Falta la hamburguesa."
+            );
+
+            feedbackMessage +=
+                "- Falta la hamburguesa.\n";
+        }
+        else
+        {
+            Debug.Log(
+                "Hamburguesa incorrecta."
+            );
+
+            feedbackMessage +=
+                "- Hamburguesa incorrecta.\n";
+        }
+    }
+
+    if (!meatCorrect &&
+        deliveryZone != null &&
+        deliveryZone.HasBurger &&
+        assembly != null &&
+        assembly.HasMeat)
+    {
+        switch (assembly.MeatState)
+        {
+            case MeatCooking.CookingState.Raw:
+
+                feedbackMessage +=
+                    "- La carne está cruda.\n";
+
+                break;
+
+            case MeatCooking.CookingState.Cooking:
+
+                feedbackMessage +=
+                    "- La carne está poco cocinada.\n";
+
+                break;
+
+            case MeatCooking.CookingState.Burned:
+
+                feedbackMessage +=
+                    "- La carne está quemada.\n";
+
+                break;
+
+            case MeatCooking.CookingState.Ready:
+
+                break;
+        }
+    }
+
+    if (!friesCorrect &&
+        assembly != null &&
+        assembly.recipe != null)
+    {
+        if (assembly.recipe.includesFries)
         {
             if (deliveryZone == null ||
-                !deliveryZone.HasBurger)
+                !deliveryZone.HasFries)
             {
-                Debug.Log(
-                    "Falta la hamburguesa."
-                );
-
                 feedbackMessage +=
-                    "- Falta la hamburguesa.\n";
-            }
-            else
-            {
-                Debug.Log(
-                    "Hamburguesa incorrecta."
-                );
-
-                feedbackMessage +=
-                    "- Hamburguesa incorrecta.\n";
-            }
-        }
-
-        if (!meatCorrect &&
-            deliveryZone != null &&
-            deliveryZone.HasBurger &&
-            assembly != null &&
-            assembly.HasMeat)
-        {
-            switch (assembly.MeatState)
-            {
-                case MeatCooking.CookingState.Raw:
-
-                    feedbackMessage +=
-                        "- La carne está cruda.\n";
-
-                    break;
-
-                case MeatCooking.CookingState.Cooking:
-
-                    feedbackMessage +=
-                        "- La carne está poco cocinada.\n";
-
-                    break;
-
-                case MeatCooking.CookingState.Burned:
-
-                    feedbackMessage +=
-                        "- La carne está quemada.\n";
-
-                    break;
-
-                case MeatCooking.CookingState.Ready:
-
-                    break;
-            }
-        }
-
-        if (!friesCorrect &&
-            assembly != null &&
-            assembly.recipe != null)
-        {
-            if (assembly.recipe.includesFries)
-            {
-                if (deliveryZone == null ||
-                    !deliveryZone.HasFries)
-                {
-                    feedbackMessage +=
-                        "- Faltan las papas.\n";
-                }
-                else
-                {
-                    feedbackMessage +=
-                        "- Las papas no están preparadas correctamente.\n";
-                }
+                    "- Faltan las papas.\n";
             }
             else
             {
                 feedbackMessage +=
-                    "- El pedido no incluye papas.\n";
+                    "- Las papas no están preparadas correctamente.\n";
             }
         }
-
-        if (!drinkCorrect &&
-            assembly != null &&
-            assembly.recipe != null)
+        else
         {
-            if (assembly.recipe.includesDrink)
-            {
-                if (deliveryZone == null ||
-                    !deliveryZone.HasDrink)
-                {
-                    feedbackMessage +=
-                        "- Falta el refresco.\n";
-                }
-                else
-                {
-                    feedbackMessage +=
-                        "- El refresco no está preparado correctamente.\n";
-                }
-            }
-            else
-            {
-                feedbackMessage +=
-                    "- El pedido no incluye refresco.\n";
-            }
+            feedbackMessage +=
+                "- El pedido no incluye papas.\n";
         }
-
-        ordersCompleted++;
-        incorrectOrders++;
-
-        int penalty =
-            GetPenaltyForCurrentDifficulty();
-
-        ApplyPenalty(
-            penalty
-        );
-
-        feedbackMessage +=
-            "\n-" +
-            penalty +
-            " PUNTOS";
-
-        BeginOrderFinish(
-            feedbackMessage,
-            FinishType.Incorrect,
-            penalty
-        );
     }
+
+    if (!drinkCorrect &&
+        assembly != null &&
+        assembly.recipe != null)
+    {
+        if (assembly.recipe.includesDrink)
+        {
+            if (deliveryZone == null ||
+                !deliveryZone.HasDrink)
+            {
+                feedbackMessage +=
+                    "- Falta el refresco.\n";
+            }
+            else
+            {
+                feedbackMessage +=
+                    "- El refresco no está preparado correctamente.\n";
+            }
+        }
+        else
+        {
+            feedbackMessage +=
+                "- El pedido no incluye refresco.\n";
+        }
+    }
+
+    ordersCompleted++;
+    incorrectOrders++;
+
+    int penalty =
+        GetPenaltyForCurrentDifficulty();
+
+    ApplyPenalty(
+        penalty
+    );
+
+    feedbackMessage +=
+        "\n-" +
+        penalty +
+        " PUNTOS";
+
+    BeginOrderFinish(
+        feedbackMessage,
+        FinishType.Incorrect,
+        penalty
+    );
+}
 
     private int GetPenaltyForCurrentDifficulty()
     {
@@ -1632,44 +1644,50 @@ public class DeliveryManager : MonoBehaviour
     }
 
     public void HandleTimeout(
-        int penalty)
+    int penalty)
+{
+    if (processingDelivery)
     {
-        if (processingDelivery)
-        {
-            return;
-        }
-
-        ordersCompleted++;
-        incorrectOrders++;
-
-        int difficultyPenalty;
-
-        if (orderManager != null)
-        {
-            difficultyPenalty =
-                GetPenaltyForCurrentDifficulty();
-        }
-        else
-        {
-            difficultyPenalty =
-                Mathf.Max(
-                    0,
-                    penalty
-                );
-        }
-
-        ApplyPenalty(
-            difficultyPenalty
-        );
-
-        BeginOrderFinish(
-            "TIEMPO AGOTADO\n\n-" +
-            difficultyPenalty +
-            " PUNTOS",
-            FinishType.Timeout,
-            difficultyPenalty
-        );
+        return;
     }
+
+    // SONIDO: TIEMPO AGOTADO
+    if (GameAudioManager.Instance != null)
+    {
+        GameAudioManager.Instance.PlayTiempoAgotado();
+    }
+
+    ordersCompleted++;
+    incorrectOrders++;
+
+    int difficultyPenalty;
+
+    if (orderManager != null)
+    {
+        difficultyPenalty =
+            GetPenaltyForCurrentDifficulty();
+    }
+    else
+    {
+        difficultyPenalty =
+            Mathf.Max(
+                0,
+                penalty
+            );
+    }
+
+    ApplyPenalty(
+        difficultyPenalty
+    );
+
+    BeginOrderFinish(
+        "TIEMPO AGOTADO\n\n-" +
+        difficultyPenalty +
+        " PUNTOS",
+        FinishType.Timeout,
+        difficultyPenalty
+    );
+}
 
     private IEnumerator FinishOrderAfterDelay()
     {
@@ -1720,69 +1738,75 @@ public class DeliveryManager : MonoBehaviour
     }
 
     private void GameOver()
+{
+    // SONIDO: GAME OVER
+    if (GameAudioManager.Instance != null)
     {
-        processingDelivery = true;
-        finishCoroutine = null;
+        GameAudioManager.Instance.PlayGameOver();
+    }
 
-        if (!gameResultSaved)
+    processingDelivery = true;
+    finishCoroutine = null;
+
+    if (!gameResultSaved)
+    {
+        SaveManager.SaveGameResult(
+            highestScore,
+            correctOrders,
+            incorrectOrders
+        );
+
+        gameResultSaved = true;
+
+        RankingManager rankingManager =
+            Object.FindAnyObjectByType
+                <RankingManager>();
+
+        if (rankingManager != null)
         {
-            SaveManager.SaveGameResult(
-                highestScore,
-                correctOrders,
-                incorrectOrders
-            );
-
-            gameResultSaved = true;
-
-            RankingManager rankingManager =
-                Object.FindAnyObjectByType
-                    <RankingManager>();
-
-            if (rankingManager != null)
-            {
-                rankingManager.RefreshRanking();
-            }
+            rankingManager.RefreshRanking();
         }
+    }
 
-        if (orderManager != null)
-        {
-            orderManager.enabled =
-                false;
-        }
+    if (orderManager != null)
+    {
+        orderManager.enabled =
+            false;
+    }
 
-        if (customerSpawner != null)
-        {
-            customerSpawner.enabled =
-                false;
-        }
+    if (customerSpawner != null)
+    {
+        customerSpawner.enabled =
+            false;
+    }
 
-        if (gameOverText != null)
-        {
-            gameOverText.text =
-                "FIN DEL TURNO\n\n" +
-                "Tu puntuacion llego a 0.\n\n" +
-                "Puntuacion maxima: " +
-                highestScore +
-                "\n\nPedidos atendidos: " +
-                ordersCompleted +
-                "\nCorrectos: " +
-                correctOrders +
-                "\nIncorrectos: " +
-                incorrectOrders +
-                "\n\nGAME OVER";
-        }
+    if (gameOverText != null)
+    {
+        gameOverText.text =
+            "FIN DEL TURNO\n\n" +
+            "Tu puntuacion llego a 0.\n\n" +
+            "Puntuacion maxima: " +
+            highestScore +
+            "\n\nPedidos atendidos: " +
+            ordersCompleted +
+            "\nCorrectos: " +
+            correctOrders +
+            "\nIncorrectos: " +
+            incorrectOrders +
+            "\n\nGAME OVER";
+    }
 
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(
-                true
-            );
-        }
-
-        Debug.Log(
-            "💀 GAME OVER"
+    if (gameOverPanel != null)
+    {
+        gameOverPanel.SetActive(
+            true
         );
     }
+
+    Debug.Log(
+        "💀 GAME OVER"
+    );
+}
 
     private void RemoveDeliveredExtras()
     {
